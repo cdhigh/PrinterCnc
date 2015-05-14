@@ -47,9 +47,9 @@ unsigned char xBacklashSteps = X_BACKLASH; //回差补偿步数
 //Y轴
 unsigned int yPrevPos = 0;	//Start at zero, upper left position
 
-unsigned int xStepDelay = 25; //X轴脉冲中的间隔时间
-unsigned int yStepDelay = 25; //Y轴脉冲中的间隔时间
-unsigned int zStepDelay = 160; //Z轴脉冲中的间隔时间
+unsigned int xStepDelay = 30; //X轴脉冲中的间隔时间
+unsigned int yStepDelay = 30; //Y轴脉冲中的间隔时间
+unsigned int zStepDelay = 50; //Z轴脉冲中的间隔时间，Z轴是软驱电机，启动频率不能太高
 
 
 //延时函数，一个循环刚好10个指令，在最后加上函数调用的花销7个指令即可。
@@ -212,12 +212,12 @@ void Zmove(unsigned char pos)
     {
         if (pos == '1') //down
         {
-            ZmoveAbsolute(20, 0);
+            ZmoveAbsolute(100, 0);
             zPrevPos = '1';
         }
         else if (pos == '2') //up
         {
-            ZmoveAbsolute(20, 1);
+            ZmoveAbsolute(100, 1);
             zPrevPos = '2';
         }
     }
@@ -236,14 +236,14 @@ void ResetPosition()
 {
     //先升起z轴才移动x和y轴
     while (Z_STOP_SW_TOP)
-        ZmoveAbsolute(20, 1);
+        ZmoveAbsolute(100, 1);
     while (X_STOP_SW_LEFT)
         XmoveAbsolute(100, 1);
     while (Y_STOP_SW_TOP)
         YmoveAbsolute(100, 1);
     
     while (Z_STOP_SW_BOTTOM)
-        ZmoveAbsolute(20, 0);
+        ZmoveAbsolute(100, 0);
 
     Reset();
 }

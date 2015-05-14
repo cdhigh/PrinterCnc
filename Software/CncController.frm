@@ -2,45 +2,112 @@ VERSION 5.00
 Begin VB.Form frmMain 
    BorderStyle     =   1  'Fixed Single
    Caption         =   "PrinterCncController [https://github.com/cdhigh/PrinterCnc]"
-   ClientHeight    =   7170
+   ClientHeight    =   7935
    ClientLeft      =   45
    ClientTop       =   435
    ClientWidth     =   10725
    LinkTopic       =   "Form1"
    MaxButton       =   0   'False
    MinButton       =   0   'False
-   ScaleHeight     =   7170
+   ScaleHeight     =   7935
    ScaleWidth      =   10725
    StartUpPosition =   2  '屏幕中心
    Tag             =   "p@protocol=WM_DELETE_WINDOW"
+   Begin VB.Frame frmSpeed 
+      Caption         =   "进给速度（值越小越快）"
+      Height          =   2055
+      Left            =   120
+      TabIndex        =   34
+      Top             =   4800
+      Width           =   4935
+      Begin VB.CommandButton cmdApplyAxisSpeed 
+         Caption         =   "应用"
+         Height          =   1095
+         Left            =   3360
+         TabIndex        =   41
+         Top             =   600
+         Width           =   1095
+      End
+      Begin VB.TextBox txtZSpeed 
+         Height          =   375
+         Left            =   1680
+         TabIndex        =   40
+         Text            =   "50"
+         Top             =   1440
+         Width           =   1215
+      End
+      Begin VB.TextBox txtYSpeed 
+         Height          =   375
+         Left            =   1680
+         TabIndex        =   39
+         Text            =   "25"
+         Top             =   960
+         Width           =   1215
+      End
+      Begin VB.TextBox txtXSpeed 
+         Height          =   375
+         Left            =   1680
+         TabIndex        =   38
+         Text            =   "25"
+         Top             =   480
+         Width           =   1215
+      End
+      Begin VB.Label lblZSpeed 
+         Alignment       =   1  'Right Justify
+         Caption         =   "Z轴速度"
+         Height          =   255
+         Left            =   480
+         TabIndex        =   37
+         Top             =   1440
+         Width           =   975
+      End
+      Begin VB.Label lblYSpeed 
+         Alignment       =   1  'Right Justify
+         Caption         =   "Z轴速度"
+         Height          =   255
+         Left            =   480
+         TabIndex        =   36
+         Top             =   960
+         Width           =   975
+      End
+      Begin VB.Label lblXSpeed 
+         Alignment       =   1  'Right Justify
+         Caption         =   "X轴速度"
+         Height          =   255
+         Left            =   480
+         TabIndex        =   35
+         Top             =   480
+         Width           =   975
+      End
+   End
    Begin VB.CommandButton cmdPause 
       Caption         =   "暂停(&P)"
       Height          =   615
-      Left            =   4320
+      Left            =   4200
       TabIndex        =   25
-      Top             =   6240
+      Top             =   7200
       Width           =   2175
    End
    Begin VB.CommandButton cmdStop 
       Caption         =   "停止(&T)"
       Height          =   615
-      Left            =   7800
+      Left            =   7680
       TabIndex        =   26
       Tag             =   "p@bg"
-      Top             =   6240
+      Top             =   7200
       Width           =   2175
    End
-   Begin VB.Frame Frame1 
+   Begin VB.Frame frmManualCmd 
       Caption         =   "手动执行命令"
       Height          =   975
-      Left            =   120
+      Left            =   5160
       TabIndex        =   21
-      Top             =   4800
-      Width           =   4935
+      Top             =   5880
+      Width           =   5415
       Begin VB.CommandButton cmdSendCommand 
          Caption         =   "执行"
          Height          =   495
-         Left            =   3960
+         Left            =   4560
          TabIndex        =   23
          Top             =   360
          Width           =   735
@@ -60,7 +127,7 @@ Begin VB.Form frmMain
          TabIndex        =   22
          Tag             =   "p@bindcommand=<Return>"
          Top             =   360
-         Width           =   3615
+         Width           =   4215
       End
    End
    Begin VB.Frame frmLog 
@@ -94,7 +161,16 @@ Begin VB.Form frmMain
          Width           =   1095
       End
       Begin VB.ListBox lstLog 
-         Height          =   4200
+         BeginProperty Font 
+            Name            =   "宋体"
+            Size            =   12
+            Charset         =   134
+            Weight          =   400
+            Underline       =   0   'False
+            Italic          =   0   'False
+            Strikethrough   =   0   'False
+         EndProperty
+         Height          =   4140
          ItemData        =   "CncController.frx":0000
          Left            =   240
          List            =   "CncController.frx":0002
@@ -176,9 +252,9 @@ Begin VB.Form frmMain
       Caption         =   "启动(&S)"
       Enabled         =   0   'False
       Height          =   615
-      Left            =   840
+      Left            =   720
       TabIndex        =   24
-      Top             =   6240
+      Top             =   7200
       Width           =   2175
    End
    Begin VB.Frame frmSetupManual 
@@ -306,6 +382,25 @@ Begin VB.Form frmMain
       TabIndex        =   1
       Top             =   120
       Width           =   8655
+   End
+   Begin VB.Label lblVersion 
+      Alignment       =   1  'Right Justify
+      Caption         =   "v0.1"
+      BeginProperty Font 
+         Name            =   "Courier New"
+         Size            =   7.5
+         Charset         =   0
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   0   'False
+         Strikethrough   =   0   'False
+      EndProperty
+      ForeColor       =   &H00B0B0B0&
+      Height          =   255
+      Left            =   9840
+      TabIndex        =   42
+      Top             =   7560
+      Width           =   735
    End
    Begin VB.Label lblPreview 
       Alignment       =   1  'Right Justify

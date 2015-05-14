@@ -8,6 +8,8 @@ GUI界面采用Tkinter库，使用VisualTkinter工具自动生成界面代码<ht
 Author: cdhigh <https://github.com/cdhigh>
 """
 
+__Version__ = 'v0.1'
+
 import os, sys, re, time
 try:
     from tkinter import *
@@ -47,8 +49,8 @@ class Application_ui(Frame):
         ws = self.master.winfo_screenwidth()
         hs = self.master.winfo_screenheight()
         x = (ws / 2) - (715 / 2)
-        y = (hs / 2) - (478 / 2)
-        self.master.geometry('%dx%d+%d+%d' % (715,478,x,y))
+        y = (hs / 2) - (529 / 2)
+        self.master.geometry('%dx%d+%d+%d' % (715,529,x,y))
         self.createWidgets()
 
     def createWidgets(self):
@@ -56,63 +58,100 @@ class Application_ui(Frame):
 
         self.style = Style()
 
+        self.style.configure('TfrmSpeed.TLabelframe', font=('宋体',9))
+        self.style.configure('TfrmSpeed.TLabelframe.Label', font=('宋体',9))
+        self.frmSpeed = LabelFrame(self.top, text='进给速度（值越小越快）', style='TfrmSpeed.TLabelframe')
+        self.frmSpeed.place(relx=0.011, rely=0.605, relwidth=0.46, relheight=0.259)
+
         self.style.configure('TcmdPause.TButton', font=('宋体',9))
         self.cmdPause = Button(self.top, text='暂停(P)', underline=3, command=self.cmdPause_Cmd, style='TcmdPause.TButton')
-        self.cmdPause.place(relx=0.403, rely=0.87, relwidth=0.203, relheight=0.086)
+        self.cmdPause.place(relx=0.392, rely=0.907, relwidth=0.203, relheight=0.078)
         self.top.bind_all('<Alt-P>', lambda e: self.cmdPause.focus_set() or self.cmdPause.invoke())
         self.top.bind_all('<Alt-p>', lambda e: self.cmdPause.focus_set() or self.cmdPause.invoke())
 
         self.style.configure('TcmdStop.TButton', background='#F0F0F0', font=('宋体',9))
         self.cmdStop = Button(self.top, text='停止(T)', underline=3, command=self.cmdStop_Cmd, style='TcmdStop.TButton')
-        self.cmdStop.place(relx=0.727, rely=0.87, relwidth=0.203, relheight=0.086)
+        self.cmdStop.place(relx=0.716, rely=0.907, relwidth=0.203, relheight=0.078)
         self.top.bind_all('<Alt-T>', lambda e: self.cmdStop.focus_set() or self.cmdStop.invoke())
         self.top.bind_all('<Alt-t>', lambda e: self.cmdStop.focus_set() or self.cmdStop.invoke())
 
-        self.style.configure('TFrame1.TLabelframe', font=('宋体',9))
-        self.style.configure('TFrame1.TLabelframe.Label', font=('宋体',9))
-        self.Frame1 = LabelFrame(self.top, text='手动执行命令', style='TFrame1.TLabelframe')
-        self.Frame1.place(relx=0.011, rely=0.669, relwidth=0.46, relheight=0.136)
+        self.style.configure('TfrmManualCmd.TLabelframe', font=('宋体',9))
+        self.style.configure('TfrmManualCmd.TLabelframe.Label', font=('宋体',9))
+        self.frmManualCmd = LabelFrame(self.top, text='手动执行命令', style='TfrmManualCmd.TLabelframe')
+        self.frmManualCmd.place(relx=0.481, rely=0.741, relwidth=0.505, relheight=0.123)
 
         self.style.configure('TfrmLog.TLabelframe', font=('宋体',9))
         self.style.configure('TfrmLog.TLabelframe.Label', font=('宋体',9))
         self.frmLog = LabelFrame(self.top, text='收发数据', style='TfrmLog.TLabelframe')
-        self.frmLog.place(relx=0.481, rely=0.084, relwidth=0.505, relheight=0.722)
+        self.frmLog.place(relx=0.481, rely=0.076, relwidth=0.505, relheight=0.652)
 
         self.style.configure('TfrmSerial.TLabelframe', font=('宋体',9))
         self.style.configure('TfrmSerial.TLabelframe.Label', font=('宋体',9))
         self.frmSerial = LabelFrame(self.top, text='端口设置', style='TfrmSerial.TLabelframe')
-        self.frmSerial.place(relx=0.011, rely=0.084, relwidth=0.46, relheight=0.22)
+        self.frmSerial.place(relx=0.011, rely=0.076, relwidth=0.46, relheight=0.198)
 
         self.style.configure('TcmdStart.TButton', font=('宋体',9))
         self.cmdStart = Button(self.top, text='启动(S)', state='disabled', underline=3, command=self.cmdStart_Cmd, style='TcmdStart.TButton')
-        self.cmdStart.place(relx=0.078, rely=0.87, relwidth=0.203, relheight=0.086)
+        self.cmdStart.place(relx=0.067, rely=0.907, relwidth=0.203, relheight=0.078)
         self.top.bind_all('<Alt-S>', lambda e: self.cmdStart.focus_set() or self.cmdStart.invoke())
         self.top.bind_all('<Alt-s>', lambda e: self.cmdStart.focus_set() or self.cmdStart.invoke())
 
         self.style.configure('TfrmSetupManual.TLabelframe', font=('宋体',9))
         self.style.configure('TfrmSetupManual.TLabelframe.Label', font=('宋体',9))
         self.frmSetupManual = LabelFrame(self.top, text='手动调整', style='TfrmSetupManual.TLabelframe')
-        self.frmSetupManual.place(relx=0.011, rely=0.318, relwidth=0.46, relheight=0.337)
+        self.frmSetupManual.place(relx=0.011, rely=0.287, relwidth=0.46, relheight=0.304)
 
         self.style.configure('TcmdChoosePreview.TButton', font=('宋体',9))
         self.cmdChoosePreview = Button(self.top, text='...', command=self.cmdChoosePreview_Cmd, style='TcmdChoosePreview.TButton')
-        self.cmdChoosePreview.place(relx=0.929, rely=0.017, relwidth=0.057, relheight=0.052)
+        self.cmdChoosePreview.place(relx=0.929, rely=0.015, relwidth=0.057, relheight=0.047)
 
         self.txtPreviewVar = StringVar(value='')
         self.txtPreview = Entry(self.top, textvariable=self.txtPreviewVar, font=('宋体',9))
-        self.txtPreview.place(relx=0.112, rely=0.017, relwidth=0.807, relheight=0.052)
+        self.txtPreview.place(relx=0.112, rely=0.015, relwidth=0.807, relheight=0.047)
+
+        self.style.configure('TlblVersion.TLabel', anchor='e', foreground='#B0B0B0', font=('Courier New',8))
+        self.lblVersion = Label(self.top, text='v0.1', style='TlblVersion.TLabel')
+        self.lblVersion.place(relx=0.917, rely=0.953, relwidth=0.069, relheight=0.032)
 
         self.style.configure('TlblPreview.TLabel', anchor='e', font=('宋体',9))
         self.lblPreview = Label(self.top, text='输入文件', style='TlblPreview.TLabel')
-        self.lblPreview.place(relx=0.011, rely=0.017, relwidth=0.091, relheight=0.052)
+        self.lblPreview.place(relx=0.011, rely=0.015, relwidth=0.091, relheight=0.047)
+
+        self.style.configure('TcmdApplyAxisSpeed.TButton', font=('宋体',9))
+        self.cmdApplyAxisSpeed = Button(self.frmSpeed, text='应用', command=self.cmdApplyAxisSpeed_Cmd, style='TcmdApplyAxisSpeed.TButton')
+        self.cmdApplyAxisSpeed.place(relx=0.681, rely=0.292, relwidth=0.222, relheight=0.533)
+
+        self.txtZSpeedVar = StringVar(value='50')
+        self.txtZSpeed = Entry(self.frmSpeed, textvariable=self.txtZSpeedVar, font=('宋体',9))
+        self.txtZSpeed.place(relx=0.34, rely=0.701, relwidth=0.246, relheight=0.182)
+
+        self.txtYSpeedVar = StringVar(value='30')
+        self.txtYSpeed = Entry(self.frmSpeed, textvariable=self.txtYSpeedVar, font=('宋体',9))
+        self.txtYSpeed.place(relx=0.34, rely=0.467, relwidth=0.246, relheight=0.182)
+
+        self.txtXSpeedVar = StringVar(value='30')
+        self.txtXSpeed = Entry(self.frmSpeed, textvariable=self.txtXSpeedVar, font=('宋体',9))
+        self.txtXSpeed.place(relx=0.34, rely=0.234, relwidth=0.246, relheight=0.182)
+
+        self.style.configure('TlblZSpeed.TLabel', anchor='e', font=('宋体',9))
+        self.lblZSpeed = Label(self.frmSpeed, text='Z轴速度', style='TlblZSpeed.TLabel')
+        self.lblZSpeed.place(relx=0.097, rely=0.701, relwidth=0.198, relheight=0.124)
+
+        self.style.configure('TlblYSpeed.TLabel', anchor='e', font=('宋体',9))
+        self.lblYSpeed = Label(self.frmSpeed, text='Y轴速度', style='TlblYSpeed.TLabel')
+        self.lblYSpeed.place(relx=0.097, rely=0.467, relwidth=0.198, relheight=0.124)
+
+        self.style.configure('TlblXSpeed.TLabel', anchor='e', font=('宋体',9))
+        self.lblXSpeed = Label(self.frmSpeed, text='X轴速度', style='TlblXSpeed.TLabel')
+        self.lblXSpeed.place(relx=0.097, rely=0.234, relwidth=0.198, relheight=0.124)
 
         self.style.configure('TcmdSendCommand.TButton', font=('宋体',9))
-        self.cmdSendCommand = Button(self.Frame1, text='执行', command=self.cmdSendCommand_Cmd, style='TcmdSendCommand.TButton')
-        self.cmdSendCommand.place(relx=0.802, rely=0.369, relwidth=0.149, relheight=0.508)
+        self.cmdSendCommand = Button(self.frmManualCmd, text='执行', command=self.cmdSendCommand_Cmd, style='TcmdSendCommand.TButton')
+        self.cmdSendCommand.place(relx=0.842, rely=0.369, relwidth=0.136, relheight=0.508)
 
         self.txtManualCommandVar = StringVar(value='')
-        self.txtManualCommand = Entry(self.Frame1, textvariable=self.txtManualCommandVar, font=('Courier New',12))
-        self.txtManualCommand.place(relx=0.049, rely=0.369, relwidth=0.733, relheight=0.508)
+        self.txtManualCommand = Entry(self.frmManualCmd, textvariable=self.txtManualCommandVar, font=('Courier New',12))
+        self.txtManualCommand.place(relx=0.044, rely=0.369, relwidth=0.778, relheight=0.508)
         self.txtManualCommand.bind('<Return>', self.txtManualCommand_Return)
 
         self.style.configure('TcmdSaveLog.TButton', font=('宋体',9))
@@ -127,9 +166,9 @@ class Application_ui(Frame):
         self.cmdClearLog.place(relx=0.753, rely=0.904, relwidth=0.202, relheight=0.072)
 
         self.lstLogVar = StringVar(value='')
-        self.lstLogFont = Font(font=('宋体',9))
+        self.lstLogFont = Font(font=('宋体',12))
         self.lstLog = Listbox(self.frmLog, listvariable=self.lstLogVar, yscrollcommand=self.scrVLog.set, font=self.lstLogFont)
-        self.lstLog.place(relx=0.044, rely=0.07, relwidth=0.867, relheight=0.812)
+        self.lstLog.place(relx=0.044, rely=0.07, relwidth=0.867, relheight=0.8)
         self.scrVLog['command'] = self.lstLog.yview
 
         self.style.configure('TlblQueueCmdNum.TLabel', anchor='w', font=('宋体',9))
@@ -215,13 +254,13 @@ class Application_ui(Frame):
         self.Line1.place(relx=0.389, rely=0.149, relwidth=0.0061, relheight=0.547)
 
 
-
 class Application(Application_ui):
     #这个类实现具体的事件处理回调函数。界面生成代码在Application_ui中。
     def __init__(self, master=None):
         Application_ui.__init__(self, master)
+        self.lblVersion['text'] = __Version__
         self.cmbSerial.current(0)
-        self.cmbTimeOut.current(5)
+        self.cmbTimeOut.current(3)
         self.ser = None
         self.cmdQueue = Queue(0) #命令队列，不限大小
         self.evExit = Event()
@@ -238,7 +277,7 @@ class Application(Application_ui):
     def EV_WM_DELETE_WINDOW(self, event=None):
         self.evExit.set()
         self.evStop.set()
-        self.cmdQueue.put_nowait('')
+        self.cmdQueue.put_nowait('') #让队列醒来，以便线程优雅的自己退出
         self.thread.join()
         self.cmdCloseSerial_Cmd()
         self.master.destroy()
@@ -276,10 +315,10 @@ class Application(Application_ui):
         self.evStop.set()
         
     def cmdZDown_Cmd(self, event=None):
-        self.SendCommand(b'@z+0005')
+        self.SendCommand(b'@z+0020')
         
     def cmdZUp_Cmd(self, event=None):
-        self.SendCommand(b'@z-0005')
+        self.SendCommand(b'@z-0020')
 
     def cmdXRight_Cmd(self, event=None):
         self.SendCommand(b'@x+1886')
@@ -303,9 +342,9 @@ class Application(Application_ui):
         time.sleep(0.5)
         self.SendCommand(b'@y-0050')
         time.sleep(0.5)
-        self.SendCommand(b'@z+0003')
+        self.SendCommand(b'@z+0020')
         time.sleep(0.5)
-        self.SendCommand(b'@z-0003')
+        self.SendCommand(b'@z-0020')
         
     def cmdOpenSerial_Cmd(self, event=None):
         try:
@@ -356,6 +395,23 @@ class Application(Application_ui):
         self.cmdResetX_Cmd()
         self.cmdResetY_Cmd()
         self.cmdResetZ_Cmd()
+    
+    #设置控制板的XYZ轴运动速度，值越小运动越快，注意速度太快则扭矩下降，并有可能丢步
+    def cmdApplyAxisSpeed_Cmd(self, event=None):
+        xSpeed = self.txtXSpeedVar.get()
+        ySpeed = self.txtYSpeedVar.get()
+        zSpeed = self.txtZSpeedVar.get()
+        try:
+            xSpeed = int(xSpeed)
+            ySpeed = int(ySpeed)
+            zSpeed = int(zSpeed)
+        except Exception as e:
+            showinfo('出错啦', str(e))
+            return
+        
+        self.SendCommand(('@X%04d' % xSpeed).encode())
+        self.SendCommand(('@Y%04d' % ySpeed).encode())
+        self.SendCommand(('@Z%04d' % zSpeed).encode())
         
     def SendCommand(self, cmd):
         if not self.ser:
@@ -372,10 +428,8 @@ class Application(Application_ui):
         else:
             self.lstLog.insert(END, cmd)
         self.lstLog.see(END)
-        self.lblQueueCmdNum['text'] = '剩余命令：%d' % self.cmdQueue.qsize()
-        self.lstLog.update_idletasks()
-        self.lblQueueCmdNum.update_idletasks()
-    
+        #self.lstLog.update_idletasks()
+        
     #将命令和控制板的答复记录保存到文本文件
     def saveLogToFile(self, filename):
         try:
@@ -505,8 +559,7 @@ class Application(Application_ui):
         while (True):
             if evExit.is_set():
                 return
-            
-            if evPause.is_set():
+            elif evPause.is_set(): #暂停后暂时不到队列中取命令
                 time.sleep(0.1) #睡0.1s先
                 continue
             
@@ -515,10 +568,15 @@ class Application(Application_ui):
             except Exception as e:
                 cmd = None
             
+            if evExit.is_set():
+                return
+            
+            self.lblQueueCmdNum['text'] = '剩余命令：%d' % self.cmdQueue.qsize()
+            
             if not cmd:
                 time.sleep(0.1) #队列空了，睡0.1s先
                 continue
-            elif evStop.is_set():
+            elif evStop.is_set(): #按停止键后需要迅速将队列取空
                 continue
             
             try:
@@ -540,10 +598,13 @@ class Application(Application_ui):
                 
                 if evExit.is_set() or evPause.is_set() or evStop.is_set():
                     break
-                    
+                
                 
             if response:
                 self.AddCommandLog(response, True)
+            else: #超时
+                self.AddCommandLog(b'Timeout', True)
+                
                 
         
 
