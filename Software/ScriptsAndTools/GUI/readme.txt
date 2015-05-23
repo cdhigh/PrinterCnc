@@ -1,0 +1,1 @@
+这个是VisualTkinter用来生成上位机GUI界面的VB窗体文件和工程文件，可以用VB6打开。

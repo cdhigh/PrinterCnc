@@ -21,6 +21,7 @@ Author: cdhigh
 #define Y_DIR   RA7 //0 - up, 1 - down
 #define Y_STEP  RA6 //rising edge to take step
 #define Y_CM    1886  //Steps for 1 cm
+#define Y_BACKLASH 0
 
 //限位开关，低有效
 #define X_STOP_SW_LEFT    RB3
