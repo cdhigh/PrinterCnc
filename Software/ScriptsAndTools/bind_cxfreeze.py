@@ -35,4 +35,4 @@ setup( name = 'CncController',
         description = 'CncController',
         options = {'build_exe': build_exe_options},
         executables = [Executable('CncController.py', base = base,
-            icon='app_icon.ico', )])
+            icon='GUI/app_icon.ico', )])

@@ -109,9 +109,11 @@ class Application(Application_ui):
     def cavSim_Motion(self, event=None):
         if not event:
             return
-        #坐标转换    
-        cavW = int(self.cavSim['width'])
-        cavH = int(self.cavSim['height'])
+        #坐标转换
+        cavW = int(self.cavSim.winfo_width())
+        cavH = int(self.cavSim.winfo_height())
+        print(cavW)
+        print(cavH)
         try:
             simW = int(self.txtXYWidthVar.get())
         except:
@@ -150,8 +152,8 @@ class Application(Application_ui):
         z = cmd[15]
         
         #坐标转换
-        cavW = int(self.cavSim['width'])
-        cavH = int(self.cavSim['height'])
+        cavW = int(self.cavSim.winfo_width())
+        cavH = int(self.cavSim.winfo_height())
         try:
             simW = int(self.txtXYWidthVar.get()) * 1000 #转换为微米
         except:
