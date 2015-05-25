@@ -1,27 +1,32 @@
 VERSION 5.00
 Begin VB.Form CncSimulator 
-   BorderStyle     =   3  'Fixed Dialog
    Caption         =   "PrinterCnc模拟器 【绘图时比较慢，请耐心等候】"
    ClientHeight    =   8310
-   ClientLeft      =   45
-   ClientTop       =   435
+   ClientLeft      =   60
+   ClientTop       =   450
    ClientWidth     =   9690
    LinkTopic       =   "Form1"
-   MaxButton       =   0   'False
-   MinButton       =   0   'False
    ScaleHeight     =   8310
    ScaleWidth      =   9690
-   ShowInTaskbar   =   0   'False
    StartUpPosition =   3  '窗口缺省
+   Begin VB.TextBox txtYHeight 
+      Height          =   375
+      Left            =   8280
+      Locked          =   -1  'True
+      TabIndex        =   8
+      Text            =   "200"
+      Top             =   2040
+      Width           =   1215
+   End
    Begin VB.CommandButton cmdClear 
       Caption         =   "全部清除"
       Height          =   375
       Left            =   8280
       TabIndex        =   3
-      Top             =   1920
+      Top             =   5640
       Width           =   1215
    End
-   Begin VB.TextBox txtXYWidth 
+   Begin VB.TextBox txtXWidth 
       Height          =   375
       Left            =   8280
       TabIndex        =   2
@@ -40,6 +45,15 @@ Begin VB.Form CncSimulator
       TabIndex        =   0
       Top             =   120
       Width           =   8000
+   End
+   Begin VB.Label lblYHeight 
+      Alignment       =   1  'Right Justify
+      Caption         =   "Y高度（mm）"
+      Height          =   255
+      Left            =   8280
+      TabIndex        =   9
+      Top             =   1680
+      Width           =   1215
    End
    Begin VB.Label lblYOrd 
       Height          =   375
@@ -71,9 +85,9 @@ Begin VB.Form CncSimulator
       Top             =   3240
       Width           =   1215
    End
-   Begin VB.Label lblXYWidth 
+   Begin VB.Label lblXWidth 
       Alignment       =   1  'Right Justify
-      Caption         =   "X/Y宽度（mm）"
+      Caption         =   "X宽度（mm）"
       Height          =   255
       Left            =   8280
       TabIndex        =   1
@@ -89,5 +103,9 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private Sub cavSim_MouseMove(Button As Integer, Shift As Integer, X As Single, Y As Single)
+
+End Sub
+
+Private Sub txtXWidth_Change()
 
 End Sub

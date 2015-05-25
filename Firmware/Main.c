@@ -39,6 +39,7 @@ __CONFIG(INTIO & WDTDIS & MCLRDIS & BORDIS & LVPDIS);
 
 //Z轴
 unsigned char zPrevPos = '1'; //'1' = down, '2' = up
+unsigned char zLiftSteps = Z_LIFT_STEPS; //z轴升起或下降的步数
 
 //X轴
 unsigned int xPrevPos = 0;	//Start at zero, upper left position
@@ -50,9 +51,9 @@ unsigned char yBacklashSteps = Y_BACKLASH; //回差补偿步数
 
 unsigned int xStepDelay = 100; //X轴脉冲中的间隔时间
 unsigned int yStepDelay = 120; //Y轴脉冲中的间隔时间
-unsigned int zStepDelay = 60; //Z轴脉冲中的间隔时间，Z轴是软驱电机，启动频率不能太高
-unsigned int xMinStepDelay = 40; //电机性能不好，速度无法提高，特使用一个加速过程
-unsigned int yMinStepDelay = 50; //电机性能不好，速度无法提高，特使用一个加速过程
+unsigned int zStepDelay = 80; //Z轴脉冲中的间隔时间，Z轴是软驱电机，启动频率不能太高
+unsigned int xMinStepDelay = 50; //电机性能不好，速度无法提高，特使用一个加速过程
+unsigned int yMinStepDelay = 60; //电机性能不好，速度无法提高，特使用一个加速过程
 
 //延时函数，一个循环刚好10个指令，在最后加上函数调用的花销7个指令即可。
 //假定4m晶体，则：
@@ -80,7 +81,7 @@ void XmoveAbsolute(unsigned int steps, unsigned char moveLeft)
             X_DIR = 1;
             for (n = xBacklashSteps; n > 0; n--) //消回差
             {
-                if ((X_STOP_SW_LEFT == 0) || (X_STOP_SW_RIGHT == 0))
+                if (X_STOP_SW_LEFT == 0)
                     break;
                 
                 X_STEP = 1; //上升沿启动
@@ -97,7 +98,7 @@ void XmoveAbsolute(unsigned int steps, unsigned char moveLeft)
             X_DIR = 0;
             for (n = xBacklashSteps; n > 0; n--) //消回差
             {
-                if ((X_STOP_SW_LEFT == 0) || (X_STOP_SW_RIGHT == 0))
+                if (X_STOP_SW_RIGHT == 0)
                     break;
                 
                 X_STEP = 1; //上升沿启动
@@ -112,7 +113,8 @@ void XmoveAbsolute(unsigned int steps, unsigned char moveLeft)
     runnedStep = 0;
     for (n = steps; n > 0; n--)
     {
-        if ((X_STOP_SW_LEFT == 0) || (X_STOP_SW_RIGHT == 0))
+        if ((moveLeft && (X_STOP_SW_LEFT == 0)) 
+            || (!moveLeft && (X_STOP_SW_RIGHT == 0)))
             break;
         
         X_STEP = 1; //上升沿启动
@@ -150,7 +152,7 @@ void YmoveAbsolute(unsigned int steps, unsigned char moveUp)
             Y_DIR = 0;
             for (n = yBacklashSteps; n > 0; n--) //消回差
             {
-                if ((Y_STOP_SW_TOP == 0) || (Y_STOP_SW_BOTTOM == 0))
+                if (Y_STOP_SW_TOP == 0)
                     break;
                 
                 Y_STEP = 1; //上升沿启动
@@ -167,7 +169,7 @@ void YmoveAbsolute(unsigned int steps, unsigned char moveUp)
             Y_DIR = 1;
             for (n = yBacklashSteps; n > 0; n--) //消回差
             {
-                if ((Y_STOP_SW_TOP == 0) || (Y_STOP_SW_BOTTOM == 0))
+                if (Y_STOP_SW_BOTTOM == 0)
                     break;
                 
                 Y_STEP = 1; //上升沿启动
@@ -182,7 +184,8 @@ void YmoveAbsolute(unsigned int steps, unsigned char moveUp)
     runnedStep = 0;
     for (n = steps; n > 0; n--)
     {
-        if ((Y_STOP_SW_TOP == 0) || (Y_STOP_SW_BOTTOM == 0))
+        if ((moveUp && (Y_STOP_SW_TOP == 0))
+            || (!moveUp && (Y_STOP_SW_BOTTOM == 0)))
             break;
             
         Y_STEP = 1; //上升沿启动
@@ -215,9 +218,10 @@ void ZmoveAbsolute(unsigned char steps, unsigned char moveUp)
 
     for (n = steps; n > 0; n--)
     {
-        if ((Z_STOP_SW_TOP == 0) || (Z_STOP_SW_BOTTOM == 0))
+        if ((moveUp && (Z_STOP_SW_TOP == 0))
+            || (!moveUp && (Z_STOP_SW_BOTTOM == 0)))
             break;
-
+        
         Z_STEP = 1; //上升沿启动
         delayit(zStepDelay);
         Z_STEP = 0;
@@ -265,12 +269,12 @@ void Zmove(unsigned char pos)
     {
         if (pos == '1') //down
         {
-            ZmoveAbsolute(120, 0);
+            ZmoveAbsolute(zLiftSteps, 0);
             zPrevPos = '1';
         }
         else if (pos == '2') //up
         {
-            ZmoveAbsolute(120, 1);
+            ZmoveAbsolute(zLiftSteps, 1);
             zPrevPos = '2';
         }
     }
@@ -289,15 +293,15 @@ void ResetPosition()
 {
     //先升起z轴才移动x和y轴
     while (Z_STOP_SW_TOP)
-        ZmoveAbsolute(120, 1);
+        ZmoveAbsolute(zLiftSteps, 1);
     while (X_STOP_SW_LEFT)
-        XmoveAbsolute(120, 1);
+        XmoveAbsolute(X_CM, 1);
     while (Y_STOP_SW_TOP)
-        YmoveAbsolute(120, 1);
+        YmoveAbsolute(Y_CM, 1);
     
     while (Z_STOP_SW_BOTTOM)
-        ZmoveAbsolute(120, 0);
-
+        ZmoveAbsolute(zLiftSteps, 0);
+    
     Reset();
 }
 
@@ -447,15 +451,26 @@ void ScanUart()
             y[4] = 0;
             yStepDelay = atol(y);
         }
-        else if (tmp == 'Z') //设置Z轴步进脉冲延时时间，@Z0000
+        else if (tmp == 'Z') //设置Z轴步进脉冲延时时间，@Z0000 或Z轴升起步数，@ZL000
         {
-        
-            while (RCIF != 1); y[0] = RCREG;
-            while (RCIF != 1); y[1] = RCREG;
-            while (RCIF != 1); y[2] = RCREG;
-            while (RCIF != 1); y[3] = RCREG;
-            y[4] = 0;
-            zStepDelay = atol(y);
+            while (RCIF != 1); tmp = RCREG;
+            if (tmp == 'L')
+            {
+                while (RCIF != 1); y[0] = RCREG;
+                while (RCIF != 1); y[1] = RCREG;
+                while (RCIF != 1); y[2] = RCREG;
+                y[3] = 0;
+                zLiftSteps = atol(x);
+            }
+            else
+            {
+                y[0] = tmp;
+                while (RCIF != 1); y[1] = RCREG;
+                while (RCIF != 1); y[2] = RCREG;
+                while (RCIF != 1); y[3] = RCREG;
+                y[4] = 0;
+                zStepDelay = atol(y);
+            }
         }
         else if (tmp == 'B') //设置回差补偿步数，@BX000 或 @BY000
         {

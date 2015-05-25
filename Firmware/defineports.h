@@ -10,6 +10,7 @@ Author: cdhigh
 //Z Axis - STEPPER MOTOR
 #define Z_DIR   RA1 //1 - down, 0 - up
 #define Z_STEP  RA0 //rising edge to take step
+#define Z_LIFT_STEPS 130
 
 //X Axis - STEPPER Motor
 #define X_DIR   RB7 //1 - left, 0 - right

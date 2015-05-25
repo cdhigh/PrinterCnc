@@ -25,10 +25,7 @@ License:
     2015-05-14
 """
 
-#画线尽量按照之前的xy顺序，不需要调到从上至下
-#优化画线的两端填充方式
-
-__Version__ = 'v0.2'
+__Version__ = 'v1.0a'
 
 import os, sys, re, time, datetime, math
 try:
@@ -64,6 +61,7 @@ from threading import Thread, Event
 import serial
 
 CFG_FILE = 'CncController.ini'
+ANGLE_PER_SIDE = 0.017453293 * 10 #用多边形逼近圆形时的步进角度，值越小越圆，但数据量越大
 
 if getattr(sys, 'frozen', False): #在cxFreeze打包后
     __file__ = sys.executable
@@ -85,7 +83,7 @@ class Application_ui(Frame):
     #这个类仅实现界面生成功能，具体事件处理代码在子类Application中。
     def __init__(self, master=None):
         Frame.__init__(self, master)
-        self.master.title('PrinterCnc Controller  - <https://github.com/cdhigh>')
+        self.master.title('PrinterCnc Controller - <https://github.com/cdhigh>')
         self.master.resizable(0,0)
         self.icondata = """
             R0lGODlhGAEXAfcAAP//////zP//mf//Zv//M///AP/M///MzP/Mmf/MZv/MM//MAP+Z
@@ -165,9 +163,9 @@ class Application_ui(Frame):
         # To center the window on the screen.
         ws = self.master.winfo_screenwidth()
         hs = self.master.winfo_screenheight()
-        x = (ws / 2) - (715 / 2)
-        y = (hs / 2) - (553 / 2)
-        self.master.geometry('%dx%d+%d+%d' % (715,553,x,y))
+        x = (ws / 2) - (750 / 2)
+        y = (hs / 2) - (518 / 2)
+        self.master.geometry('%dx%d+%d+%d' % (750,518,x,y))
         self.createWidgets()
 
     def createWidgets(self):
@@ -176,186 +174,186 @@ class Application_ui(Frame):
         self.style = Style()
 
         self.tabPosition = Notebook(self.top)
-        self.tabPosition.place(relx=0.011, rely=0.535, relwidth=0.46, relheight=0.32)
+        self.tabPosition.place(relx=0.011, rely=0.51, relwidth=0.481, relheight=0.342)
 
         self.tabPosition__Tab1 = Frame(self.tabPosition)
         self.style.configure('TcmdZMicroUp.TButton', font=('宋体',9))
         self.cmdZMicroUp = Button(self.tabPosition__Tab1, text='→', command=self.cmdZMicroUp_Cmd, style='TcmdZMicroUp.TButton')
-        self.cmdZMicroUp.place(relx=0.584, rely=0.298, relwidth=0.1, relheight=0.205)
+        self.cmdZMicroUp.place(relx=0.576, rely=0.298, relwidth=0.091, relheight=0.205)
         self.style.configure('TcmdZMicroDown.TButton', font=('宋体',9))
         self.cmdZMicroDown = Button(self.tabPosition__Tab1, text='←', command=self.cmdZMicroDown_Cmd, style='TcmdZMicroDown.TButton')
-        self.cmdZMicroDown.place(relx=0.389, rely=0.298, relwidth=0.1, relheight=0.205)
+        self.cmdZMicroDown.place(relx=0.399, rely=0.298, relwidth=0.091, relheight=0.205)
         self.style.configure('TcmdYUp.TButton', font=('宋体',9))
         self.cmdYUp = Button(self.tabPosition__Tab1, text='↑', command=self.cmdYUp_Cmd, style='TcmdYUp.TButton')
-        self.cmdYUp.place(relx=0.146, rely=0.099, relwidth=0.1, relheight=0.205)
+        self.cmdYUp.place(relx=0.177, rely=0.099, relwidth=0.091, relheight=0.205)
         self.style.configure('TcmdYDown.TButton', font=('宋体',9))
         self.cmdYDown = Button(self.tabPosition__Tab1, text='↓', command=self.cmdYDown_Cmd, style='TcmdYDown.TButton')
-        self.cmdYDown.place(relx=0.146, rely=0.497, relwidth=0.1, relheight=0.205)
+        self.cmdYDown.place(relx=0.177, rely=0.497, relwidth=0.091, relheight=0.205)
         self.style.configure('TcmdXLeft.TButton', font=('宋体',9))
         self.cmdXLeft = Button(self.tabPosition__Tab1, text='←', command=self.cmdXLeft_Cmd, style='TcmdXLeft.TButton')
-        self.cmdXLeft.place(relx=0.049, rely=0.298, relwidth=0.1, relheight=0.205)
+        self.cmdXLeft.place(relx=0.089, rely=0.298, relwidth=0.091, relheight=0.205)
         self.style.configure('TcmdXRight.TButton', font=('宋体',9))
         self.cmdXRight = Button(self.tabPosition__Tab1, text='→', command=self.cmdXRight_Cmd, style='TcmdXRight.TButton')
-        self.cmdXRight.place(relx=0.243, rely=0.298, relwidth=0.1, relheight=0.205)
+        self.cmdXRight.place(relx=0.266, rely=0.298, relwidth=0.091, relheight=0.205)
         self.style.configure('TcmdZUp.TButton', font=('宋体',9))
         self.cmdZUp = Button(self.tabPosition__Tab1, text='↑', command=self.cmdZUp_Cmd, style='TcmdZUp.TButton')
-        self.cmdZUp.place(relx=0.486, rely=0.099, relwidth=0.1, relheight=0.205)
+        self.cmdZUp.place(relx=0.488, rely=0.099, relwidth=0.091, relheight=0.205)
         self.style.configure('TcmdZDown.TButton', font=('宋体',9))
         self.cmdZDown = Button(self.tabPosition__Tab1, text='↓', command=self.cmdZDown_Cmd, style='TcmdZDown.TButton')
-        self.cmdZDown.place(relx=0.486, rely=0.497, relwidth=0.1, relheight=0.205)
+        self.cmdZDown.place(relx=0.488, rely=0.497, relwidth=0.091, relheight=0.205)
         self.style.configure('TcmdResetX.TButton', font=('宋体',9))
         self.cmdResetX = Button(self.tabPosition__Tab1, text='X清零', command=self.cmdResetX_Cmd, style='TcmdResetX.TButton')
-        self.cmdResetX.place(relx=0.729, rely=0.099, relwidth=0.222, relheight=0.155)
+        self.cmdResetX.place(relx=0.731, rely=0.099, relwidth=0.202, relheight=0.155)
         self.style.configure('TcmdResetY.TButton', font=('宋体',9))
         self.cmdResetY = Button(self.tabPosition__Tab1, text='Y清零', command=self.cmdResetY_Cmd, style='TcmdResetY.TButton')
-        self.cmdResetY.place(relx=0.729, rely=0.298, relwidth=0.222, relheight=0.155)
+        self.cmdResetY.place(relx=0.731, rely=0.298, relwidth=0.202, relheight=0.155)
         self.style.configure('TcmdResetZ.TButton', font=('宋体',9))
         self.cmdResetZ = Button(self.tabPosition__Tab1, text='Z清零', command=self.cmdResetZ_Cmd, style='TcmdResetZ.TButton')
-        self.cmdResetZ.place(relx=0.729, rely=0.497, relwidth=0.222, relheight=0.155)
+        self.cmdResetZ.place(relx=0.731, rely=0.497, relwidth=0.202, relheight=0.155)
         self.style.configure('TcmdResetXYZ.TButton', font=('宋体',9))
         self.cmdResetXYZ = Button(self.tabPosition__Tab1, text='全部清零', command=self.cmdResetXYZ_Cmd, style='TcmdResetXYZ.TButton')
-        self.cmdResetXYZ.place(relx=0.729, rely=0.696, relwidth=0.222, relheight=0.155)
+        self.cmdResetXYZ.place(relx=0.731, rely=0.696, relwidth=0.202, relheight=0.155)
         self.style.configure('TlblXY.TLabel', anchor='center', font=('宋体',9))
         self.lblXY = Label(self.tabPosition__Tab1, text='XY', style='TlblXY.TLabel')
-        self.lblXY.place(relx=0.146, rely=0.795, relwidth=0.088, relheight=0.124)
+        self.lblXY.place(relx=0.177, rely=0.795, relwidth=0.08, relheight=0.124)
         self.style.configure('TlblZ.TLabel', anchor='center', font=('宋体',9))
         self.lblZ = Label(self.tabPosition__Tab1, text='Z', style='TlblZ.TLabel')
-        self.lblZ.place(relx=0.486, rely=0.795, relwidth=0.1, relheight=0.106)
+        self.lblZ.place(relx=0.488, rely=0.795, relwidth=0.091, relheight=0.106)
         self.tabPosition.add(self.tabPosition__Tab1, text='设定原点')
 
         self.tabPosition__Tab2 = Frame(self.tabPosition)
         self.style.configure('TcmdMoveToRightBottom.TButton', font=('宋体',9))
         self.cmdMoveToRightBottom = Button(self.tabPosition__Tab2, text='右下角', command=self.cmdMoveToRightBottom_Cmd, style='TcmdMoveToRightBottom.TButton')
-        self.cmdMoveToRightBottom.place(relx=0.632, rely=0.795, relwidth=0.271, relheight=0.124)
+        self.cmdMoveToRightBottom.place(relx=0.643, rely=0.795, relwidth=0.247, relheight=0.124)
         self.style.configure('TcmdMoveToLeftBottom.TButton', font=('宋体',9))
         self.cmdMoveToLeftBottom = Button(self.tabPosition__Tab2, text='左下角', command=self.cmdMoveToLeftBottom_Cmd, style='TcmdMoveToLeftBottom.TButton')
-        self.cmdMoveToLeftBottom.place(relx=0.632, rely=0.621, relwidth=0.271, relheight=0.124)
+        self.cmdMoveToLeftBottom.place(relx=0.643, rely=0.621, relwidth=0.247, relheight=0.124)
         self.style.configure('TcmdMoveToRightUp.TButton', font=('宋体',9))
         self.cmdMoveToRightUp = Button(self.tabPosition__Tab2, text='右上角', command=self.cmdMoveToRightUp_Cmd, style='TcmdMoveToRightUp.TButton')
-        self.cmdMoveToRightUp.place(relx=0.632, rely=0.447, relwidth=0.271, relheight=0.124)
+        self.cmdMoveToRightUp.place(relx=0.643, rely=0.447, relwidth=0.247, relheight=0.124)
         self.style.configure('TcmdMoveToLeftUp.TButton', font=('宋体',9))
         self.cmdMoveToLeftUp = Button(self.tabPosition__Tab2, text='左上角', command=self.cmdMoveToLeftUp_Cmd, style='TcmdMoveToLeftUp.TButton')
-        self.cmdMoveToLeftUp.place(relx=0.632, rely=0.273, relwidth=0.271, relheight=0.124)
+        self.cmdMoveToLeftUp.place(relx=0.643, rely=0.273, relwidth=0.247, relheight=0.124)
         self.style.configure('TcmdUpdateMinMax.TButton', font=('宋体',9))
         self.cmdUpdateMinMax = Button(self.tabPosition__Tab2, text='分析', command=self.cmdUpdateMinMax_Cmd, style='TcmdUpdateMinMax.TButton')
-        self.cmdUpdateMinMax.place(relx=0.632, rely=0.099, relwidth=0.271, relheight=0.124)
+        self.cmdUpdateMinMax.place(relx=0.643, rely=0.099, relwidth=0.247, relheight=0.124)
         self.txtMaxYVar = StringVar(value='')
         self.txtMaxY = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMaxYVar, font=('宋体',9))
-        self.txtMaxY.place(relx=0.243, rely=0.795, relwidth=0.222, relheight=0.112)
+        self.txtMaxY.place(relx=0.288, rely=0.795, relwidth=0.202, relheight=0.112)
         self.txtMinYVar = StringVar(value='')
         self.txtMinY = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMinYVar, font=('宋体',9))
-        self.txtMinY.place(relx=0.243, rely=0.578, relwidth=0.222, relheight=0.112)
+        self.txtMinY.place(relx=0.288, rely=0.578, relwidth=0.202, relheight=0.112)
         self.txtMaxXVar = StringVar(value='')
         self.txtMaxX = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMaxXVar, font=('宋体',9))
-        self.txtMaxX.place(relx=0.243, rely=0.366, relwidth=0.222, relheight=0.112)
+        self.txtMaxX.place(relx=0.288, rely=0.366, relwidth=0.202, relheight=0.112)
         self.txtMinXVar = StringVar(value='')
         self.txtMinX = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMinXVar, font=('宋体',9))
-        self.txtMinX.place(relx=0.243, rely=0.149, relwidth=0.222, relheight=0.112)
+        self.txtMinX.place(relx=0.288, rely=0.149, relwidth=0.202, relheight=0.112)
         self.style.configure('TlblMaxY.TLabel', anchor='e', font=('宋体',9))
         self.lblMaxY = Label(self.tabPosition__Tab2, text='Y最大', style='TlblMaxY.TLabel')
-        self.lblMaxY.place(relx=0.073, rely=0.795, relwidth=0.125, relheight=0.106)
+        self.lblMaxY.place(relx=0.133, rely=0.795, relwidth=0.114, relheight=0.106)
         self.style.configure('TlblMinY.TLabel', anchor='e', font=('宋体',9))
         self.lblMinY = Label(self.tabPosition__Tab2, text='Y最小', style='TlblMinY.TLabel')
-        self.lblMinY.place(relx=0.073, rely=0.578, relwidth=0.125, relheight=0.106)
+        self.lblMinY.place(relx=0.133, rely=0.578, relwidth=0.114, relheight=0.106)
         self.style.configure('TlblMaxX.TLabel', anchor='e', font=('宋体',9))
         self.lblMaxX = Label(self.tabPosition__Tab2, text='X最大', style='TlblMaxX.TLabel')
-        self.lblMaxX.place(relx=0.073, rely=0.366, relwidth=0.125, relheight=0.106)
+        self.lblMaxX.place(relx=0.133, rely=0.366, relwidth=0.114, relheight=0.106)
         self.style.configure('TlblMinX.TLabel', anchor='e', font=('宋体',9))
         self.lblMinX = Label(self.tabPosition__Tab2, text='X最小', style='TlblMinX.TLabel')
-        self.lblMinX.place(relx=0.073, rely=0.149, relwidth=0.125, relheight=0.106)
+        self.lblMinX.place(relx=0.133, rely=0.149, relwidth=0.114, relheight=0.106)
         self.tabPosition.add(self.tabPosition__Tab2, text='打印区域定位')
 
         self.style.configure('TcmdStartSimulator.TButton', font=('宋体',9))
         self.cmdStartSimulator = Button(self.top, text='打开模拟器(E)', underline=6, command=self.cmdStartSimulator_Cmd, style='TcmdStartSimulator.TButton')
-        self.cmdStartSimulator.place(relx=0.034, rely=0.897, relwidth=0.169, relheight=0.074)
+        self.cmdStartSimulator.place(relx=0.032, rely=0.896, relwidth=0.161, relheight=0.079)
         self.top.bind_all('<Alt-E>', lambda e: self.cmdStartSimulator.focus_set() or self.cmdStartSimulator.invoke())
         self.top.bind_all('<Alt-e>', lambda e: self.cmdStartSimulator.focus_set() or self.cmdStartSimulator.invoke())
 
         self.style.configure('TfrmSpeed.TLabelframe', font=('宋体',9))
         self.style.configure('TfrmSpeed.TLabelframe.Label', font=('宋体',9))
         self.frmSpeed = LabelFrame(self.top, text='速度（值越小越快）/ 笔宽（mm）', style='TfrmSpeed.TLabelframe')
-        self.frmSpeed.place(relx=0.011, rely=0.246, relwidth=0.46, relheight=0.277)
+        self.frmSpeed.place(relx=0.011, rely=0.263, relwidth=0.481, relheight=0.234)
 
         self.style.configure('TcmdPause.TButton', font=('宋体',9))
         self.cmdPause = Button(self.top, text='暂停(P)', underline=3, command=self.cmdPause_Cmd, style='TcmdPause.TButton')
-        self.cmdPause.place(relx=0.541, rely=0.897, relwidth=0.169, relheight=0.074)
+        self.cmdPause.place(relx=0.544, rely=0.896, relwidth=0.161, relheight=0.079)
         self.top.bind_all('<Alt-P>', lambda e: self.cmdPause.focus_set() or self.cmdPause.invoke())
         self.top.bind_all('<Alt-p>', lambda e: self.cmdPause.focus_set() or self.cmdPause.invoke())
 
         self.style.configure('TcmdStop.TButton', background='#F0F0F0', font=('宋体',9))
         self.cmdStop = Button(self.top, text='停止(T)', underline=3, command=self.cmdStop_Cmd, style='TcmdStop.TButton')
-        self.cmdStop.place(relx=0.794, rely=0.897, relwidth=0.169, relheight=0.074)
+        self.cmdStop.place(relx=0.8, rely=0.896, relwidth=0.161, relheight=0.079)
         self.top.bind_all('<Alt-T>', lambda e: self.cmdStop.focus_set() or self.cmdStop.invoke())
         self.top.bind_all('<Alt-t>', lambda e: self.cmdStop.focus_set() or self.cmdStop.invoke())
 
         self.style.configure('TfrmManualCmd.TLabelframe', font=('宋体',9))
         self.style.configure('TfrmManualCmd.TLabelframe.Label', font=('宋体',9))
         self.frmManualCmd = LabelFrame(self.top, text='手动执行命令', style='TfrmManualCmd.TLabelframe')
-        self.frmManualCmd.place(relx=0.481, rely=0.738, relwidth=0.505, relheight=0.118)
+        self.frmManualCmd.place(relx=0.501, rely=0.726, relwidth=0.481, relheight=0.125)
 
         self.style.configure('TfrmLog.TLabelframe', font=('宋体',9))
         self.style.configure('TfrmLog.TLabelframe.Label', font=('宋体',9))
         self.frmLog = LabelFrame(self.top, text='收发数据', style='TfrmLog.TLabelframe')
-        self.frmLog.place(relx=0.481, rely=0.072, relwidth=0.505, relheight=0.653)
+        self.frmLog.place(relx=0.501, rely=0.077, relwidth=0.481, relheight=0.635)
 
         self.style.configure('TfrmSerial.TLabelframe', font=('宋体',9))
         self.style.configure('TfrmSerial.TLabelframe.Label', font=('宋体',9))
         self.frmSerial = LabelFrame(self.top, text='端口设置', style='TfrmSerial.TLabelframe')
-        self.frmSerial.place(relx=0.011, rely=0.072, relwidth=0.46, relheight=0.161)
+        self.frmSerial.place(relx=0.011, rely=0.077, relwidth=0.481, relheight=0.172)
 
         self.style.configure('TcmdStart.TButton', font=('宋体',9))
         self.cmdStart = Button(self.top, text='启动(S)', underline=3, command=self.cmdStart_Cmd, style='TcmdStart.TButton')
-        self.cmdStart.place(relx=0.287, rely=0.897, relwidth=0.169, relheight=0.074)
+        self.cmdStart.place(relx=0.288, rely=0.896, relwidth=0.161, relheight=0.079)
         self.top.bind_all('<Alt-S>', lambda e: self.cmdStart.focus_set() or self.cmdStart.invoke())
         self.top.bind_all('<Alt-s>', lambda e: self.cmdStart.focus_set() or self.cmdStart.invoke())
 
         self.style.configure('TcmdChooseFile.TButton', font=('宋体',9))
         self.cmdChooseFile = Button(self.top, text='...', command=self.cmdChooseFile_Cmd, style='TcmdChooseFile.TButton')
-        self.cmdChooseFile.place(relx=0.929, rely=0.014, relwidth=0.057, relheight=0.045)
+        self.cmdChooseFile.place(relx=0.928, rely=0.015, relwidth=0.055, relheight=0.048)
 
         self.txtSourceFileVar = StringVar(value='')
         self.txtSourceFile = Entry(self.top, textvariable=self.txtSourceFileVar, font=('宋体',9))
-        self.txtSourceFile.place(relx=0.112, rely=0.014, relwidth=0.807, relheight=0.045)
+        self.txtSourceFile.place(relx=0.107, rely=0.015, relwidth=0.812, relheight=0.048)
 
         self.style.configure('TlblSourceFile.TLabel', anchor='e', font=('宋体',9))
         self.lblSourceFile = Label(self.top, text='输入文件', style='TlblSourceFile.TLabel')
-        self.lblSourceFile.place(relx=0.011, rely=0.014, relwidth=0.091, relheight=0.045)
+        self.lblSourceFile.place(relx=0.011, rely=0.015, relwidth=0.087, relheight=0.048)
 
         self.txtPenWidthVar = StringVar(value='0.6')
         self.txtPenWidth = Entry(self.frmSpeed, textvariable=self.txtPenWidthVar, font=('宋体',9))
-        self.txtPenWidth.place(relx=0.365, rely=0.732, relwidth=0.246, relheight=0.163)
+        self.txtPenWidth.place(relx=0.731, rely=0.397, relwidth=0.224, relheight=0.207)
 
         self.style.configure('TcmdApplyAxisSpeed.TButton', font=('宋体',9))
         self.cmdApplyAxisSpeed = Button(self.frmSpeed, text='应用', command=self.cmdApplyAxisSpeed_Cmd, style='TcmdApplyAxisSpeed.TButton')
-        self.cmdApplyAxisSpeed.place(relx=0.681, rely=0.261, relwidth=0.222, relheight=0.477)
+        self.cmdApplyAxisSpeed.place(relx=0.554, rely=0.661, relwidth=0.402, relheight=0.207)
 
-        self.txtZSpeedVar = StringVar(value='60')
+        self.txtZSpeedVar = StringVar(value='80')
         self.txtZSpeed = Entry(self.frmSpeed, textvariable=self.txtZSpeedVar, font=('宋体',9))
-        self.txtZSpeed.place(relx=0.365, rely=0.523, relwidth=0.246, relheight=0.163)
+        self.txtZSpeed.place(relx=0.244, rely=0.661, relwidth=0.224, relheight=0.207)
 
         self.txtYSpeedVar = StringVar(value='120')
         self.txtYSpeed = Entry(self.frmSpeed, textvariable=self.txtYSpeedVar, font=('宋体',9))
-        self.txtYSpeed.place(relx=0.365, rely=0.314, relwidth=0.246, relheight=0.163)
+        self.txtYSpeed.place(relx=0.244, rely=0.397, relwidth=0.224, relheight=0.207)
 
         self.txtXSpeedVar = StringVar(value='100')
         self.txtXSpeed = Entry(self.frmSpeed, textvariable=self.txtXSpeedVar, font=('宋体',9))
-        self.txtXSpeed.place(relx=0.365, rely=0.105, relwidth=0.246, relheight=0.163)
+        self.txtXSpeed.place(relx=0.244, rely=0.132, relwidth=0.224, relheight=0.207)
 
         self.style.configure('TlblPenWidth.TLabel', anchor='e', font=('宋体',9))
         self.lblPenWidth = Label(self.frmSpeed, text='笔尖直径', style='TlblPenWidth.TLabel')
-        self.lblPenWidth.place(relx=0.122, rely=0.732, relwidth=0.198, relheight=0.111)
+        self.lblPenWidth.place(relx=0.51, rely=0.397, relwidth=0.18, relheight=0.14)
 
         self.style.configure('TlblZSpeed.TLabel', anchor='e', font=('宋体',9))
         self.lblZSpeed = Label(self.frmSpeed, text='Z轴速度', style='TlblZSpeed.TLabel')
-        self.lblZSpeed.place(relx=0.122, rely=0.523, relwidth=0.198, relheight=0.111)
+        self.lblZSpeed.place(relx=0.022, rely=0.661, relwidth=0.18, relheight=0.14)
 
         self.style.configure('TlblYSpeed.TLabel', anchor='e', font=('宋体',9))
         self.lblYSpeed = Label(self.frmSpeed, text='Y轴速度', style='TlblYSpeed.TLabel')
-        self.lblYSpeed.place(relx=0.122, rely=0.314, relwidth=0.198, relheight=0.111)
+        self.lblYSpeed.place(relx=0.022, rely=0.397, relwidth=0.18, relheight=0.14)
 
         self.style.configure('TlblXSpeed.TLabel', anchor='e', font=('宋体',9))
         self.lblXSpeed = Label(self.frmSpeed, text='X轴速度', style='TlblXSpeed.TLabel')
-        self.lblXSpeed.place(relx=0.122, rely=0.105, relwidth=0.198, relheight=0.111)
+        self.lblXSpeed.place(relx=0.022, rely=0.132, relwidth=0.18, relheight=0.14)
 
         self.style.configure('TcmdSendCommand.TButton', font=('宋体',9))
         self.cmdSendCommand = Button(self.frmManualCmd, text='执行', command=self.cmdSendCommand_Cmd, style='TcmdSendCommand.TButton')
@@ -369,74 +367,80 @@ class Application_ui(Frame):
         self.cmbKeepLogNumList = ['100','500','1000','2000','3000','4000','5000','8000','10000','20000',]
         self.cmbKeepLogNumVar = StringVar(value='100')
         self.cmbKeepLogNum = Combobox(self.frmLog, state='readonly', text='100', textvariable=self.cmbKeepLogNumVar, values=self.cmbKeepLogNumList, font=('宋体',9))
-        self.cmbKeepLogNum.place(relx=0.244, rely=0.909, relwidth=0.269, relheight=0.055)
+        self.cmbKeepLogNum.place(relx=0.244, rely=0.9, relwidth=0.269, relheight=0.061)
 
         self.style.configure('TcmdSaveLog.TButton', font=('宋体',9))
         self.cmdSaveLog = Button(self.frmLog, text='保存', command=self.cmdSaveLog_Cmd, style='TcmdSaveLog.TButton')
-        self.cmdSaveLog.place(relx=0.576, rely=0.909, relwidth=0.18, relheight=0.055)
+        self.cmdSaveLog.place(relx=0.576, rely=0.9, relwidth=0.18, relheight=0.061)
 
         self.scrVLog = Scrollbar(self.frmLog, orient='vertical')
-        self.scrVLog.place(relx=0.909, rely=0.044, relwidth=0.047, relheight=0.734)
+        self.scrVLog.place(relx=0.909, rely=0.049, relwidth=0.047, relheight=0.684)
 
         self.style.configure('TcmdClearLog.TButton', font=('宋体',9))
         self.cmdClearLog = Button(self.frmLog, text='清空', command=self.cmdClearLog_Cmd, style='TcmdClearLog.TButton')
-        self.cmdClearLog.place(relx=0.776, rely=0.909, relwidth=0.18, relheight=0.055)
+        self.cmdClearLog.place(relx=0.776, rely=0.9, relwidth=0.18, relheight=0.061)
 
         self.lstLogVar = StringVar(value='')
         self.lstLogFont = Font(font=('宋体',12))
         self.lstLog = Listbox(self.frmLog, listvariable=self.lstLogVar, yscrollcommand=self.scrVLog.set, font=self.lstLogFont)
-        self.lstLog.place(relx=0.044, rely=0.044, relwidth=0.867, relheight=0.72)
+        self.lstLog.place(relx=0.044, rely=0.049, relwidth=0.867, relheight=0.693)
         self.scrVLog['command'] = self.lstLog.yview
 
         self.style.configure('TlneUp.TSeparator', background='#C0C0C0')
         self.lneUp = Separator(self.frmLog, orient='horizontal', style='TlneUp.TSeparator')
-        self.lneUp.place(relx=0.044, rely=0.864, relwidth=0.886, relheight=0.0028)
+        self.lneUp.place(relx=0.044, rely=0.851, relwidth=0.886, relheight=0.003)
 
         self.style.configure('TlneDown.TSeparator', background='#FFFFC0')
         self.lneDown = Separator(self.frmLog, orient='horizontal', style='TlneDown.TSeparator')
-        self.lneDown.place(relx=0.044, rely=0.864, relwidth=0.886, relheight=0.0083)
+        self.lneDown.place(relx=0.044, rely=0.851, relwidth=0.886, relheight=0.0091)
 
         self.style.configure('TlblKeepLogNum.TLabel', anchor='w', font=('宋体',9))
         self.lblKeepLogNum = Label(self.frmLog, text='保留条目', style='TlblKeepLogNum.TLabel')
-        self.lblKeepLogNum.place(relx=0.044, rely=0.909, relwidth=0.158, relheight=0.047)
+        self.lblKeepLogNum.place(relx=0.044, rely=0.9, relwidth=0.158, relheight=0.052)
 
         self.style.configure('TlblTimeToFinish.TLabel', anchor='w', font=('宋体',9))
         self.lblTimeToFinish = Label(self.frmLog, text='预计剩余时间：00:00:00', style='TlblTimeToFinish.TLabel')
-        self.lblTimeToFinish.place(relx=0.51, rely=0.798, relwidth=0.446, relheight=0.047)
+        self.lblTimeToFinish.place(relx=0.51, rely=0.778, relwidth=0.446, relheight=0.052)
 
         self.style.configure('TlblQueueCmdNum.TLabel', anchor='w', font=('宋体',9))
         self.lblQueueCmdNum = Label(self.frmLog, text='剩余命令：0', style='TlblQueueCmdNum.TLabel')
-        self.lblQueueCmdNum.place(relx=0.044, rely=0.798, relwidth=0.38, relheight=0.047)
+        self.lblQueueCmdNum.place(relx=0.044, rely=0.778, relwidth=0.38, relheight=0.052)
 
         self.style.configure('TcmdCloseSerial.TButton', font=('宋体',9))
         self.cmdCloseSerial = Button(self.frmSerial, text='关闭', state='disabled', command=self.cmdCloseSerial_Cmd, style='TcmdCloseSerial.TButton')
-        self.cmdCloseSerial.place(relx=0.681, rely=0.539, relwidth=0.222, relheight=0.281)
+        self.cmdCloseSerial.place(relx=0.687, rely=0.539, relwidth=0.202, relheight=0.281)
 
         self.cmbTimeOutList = ['1s x 10','1s x 30','1s x 60','1s x 120','3s x 5','3s x 10','3s x 30','3s x 60',]
         self.cmbTimeOutVar = StringVar(value='1s x 10')
         self.cmbTimeOut = Combobox(self.frmSerial, state='readonly', text='1s x 10', textvariable=self.cmbTimeOutVar, values=self.cmbTimeOutList, font=('宋体',9))
-        self.cmbTimeOut.place(relx=0.267, rely=0.539, relwidth=0.343, relheight=0.225)
+        self.cmbTimeOut.place(relx=0.244, rely=0.539, relwidth=0.38, relheight=0.225)
 
         self.style.configure('TcmdOpenSerial.TButton', font=('宋体',9))
         self.cmdOpenSerial = Button(self.frmSerial, text='打开', command=self.cmdOpenSerial_Cmd, style='TcmdOpenSerial.TButton')
-        self.cmdOpenSerial.place(relx=0.681, rely=0.18, relwidth=0.222, relheight=0.281)
+        self.cmdOpenSerial.place(relx=0.687, rely=0.18, relwidth=0.202, relheight=0.281)
 
         self.cmbSerialList = ['COM1','COM2','COM3','COM4','COM5','COM6','COM6','COM7','COM8','COM9',]
         self.cmbSerialVar = StringVar(value='COM1')
         self.cmbSerial = Combobox(self.frmSerial, text='COM1', textvariable=self.cmbSerialVar, values=self.cmbSerialList, font=('宋体',9))
-        self.cmbSerial.place(relx=0.267, rely=0.18, relwidth=0.343, relheight=0.225)
+        self.cmbSerial.place(relx=0.244, rely=0.18, relwidth=0.38, relheight=0.225)
 
         self.style.configure('TlblTimeOut.TLabel', anchor='e', font=('宋体',9))
         self.lblTimeOut = Label(self.frmSerial, text='超时时间', style='TlblTimeOut.TLabel')
-        self.lblTimeOut.place(relx=0.049, rely=0.539, relwidth=0.173, relheight=0.191)
+        self.lblTimeOut.place(relx=0.044, rely=0.539, relwidth=0.158, relheight=0.191)
 
         self.style.configure('TlblPortNo.TLabel', anchor='e', font=('宋体',9))
         self.lblPortNo = Label(self.frmSerial, text='端口号', style='TlblPortNo.TLabel')
-        self.lblPortNo.place(relx=0.049, rely=0.18, relwidth=0.173, relheight=0.191)
+        self.lblPortNo.place(relx=0.044, rely=0.18, relwidth=0.158, relheight=0.191)
 
+        self.txtZLiftStepsVar = StringVar(value='130')
+        self.txtZLiftSteps = Entry(self.frmSpeed, textvariable=self.txtZLiftStepsVar, font=('宋体',9))
+        self.txtZLiftSteps.place(relx=0.731, rely=0.132, relwidth=0.224, relheight=0.207)
 
-
-
+        self.style.configure('TlblZLiftSteps.TLabel', anchor='e', font=('宋体',9))
+        self.lblZLiftSteps = Label(self.frmSpeed, text='Z轴步进', style='TlblZLiftSteps.TLabel')
+        self.lblZLiftSteps.place(relx=0.51, rely=0.132, relwidth=0.18, relheight=0.14)
+         
+           
 class Application(Application_ui):
     #这个类实现具体的事件处理回调函数。界面生成代码在Application_ui中。
     def __init__(self, master=None):
@@ -465,7 +469,11 @@ class Application(Application_ui):
         self.thread = Thread(target=self.threadSendCommand, 
             args=(self.evStop, self.evExit, self.evPause, self.cmdQueue,))
         self.thread.start()
-    
+        if self.shiftX != 0.0 or self.shiftY != 0.0:
+            ret = askyesno('友情提醒', '告知：配置文件中的ShiftX/ShiftY设置值不等于零。\n\n如果不是每次绘图都需要平移整个图案，则建议设置为0.0\n\n现在需要恢复为0.0吗？')
+            if ret:
+                self.shiftX = self.shiftY = 0.0
+        
     def getConfigFromFile(self):
         config = configparser.SafeConfigParser()
         cfgFilename = os.path.join(os.path.dirname(__file__), CFG_FILE)
@@ -489,6 +497,10 @@ class Application(Application_ui):
             pass
         try:
             self.txtZSpeedVar.set(config.get('Main', 'ZAxisSpeed'))
+        except:
+            pass
+        try:
+            self.txtZLiftStepsVar.set(config.get('Main', 'ZLiftSteps'))
         except:
             pass
         try:
@@ -534,6 +546,7 @@ class Application(Application_ui):
         config.set('Main', 'XAxisSpeed', self.txtXSpeedVar.get())
         config.set('Main', 'YAxisSpeed', self.txtYSpeedVar.get())
         config.set('Main', 'ZAxisSpeed', self.txtZSpeedVar.get())
+        config.set('Main', 'ZLiftSteps', self.txtZLiftStepsVar.get())
         config.set('Main', 'PenDiameter', self.txtPenWidthVar.get())
         config.set('Main', 'KeepLogNum', self.cmbKeepLogNumVar.get())
         config.set('Main', 'MinimumX', '%.1f' % self.allowedMinX)
@@ -578,7 +591,7 @@ class Application(Application_ui):
         #在开始前先设定当前位置为原点
         filename = self.txtSourceFileVar.get()
         if not filename:
-            showinfo('注意啦', '你忘了选择输入文件了！')
+            showinfo('注意啦', '你是不是好像忘了选择输入文件了？')
             return
         
         if not self.ser and not self.hasSimulator():
@@ -589,7 +602,7 @@ class Application(Application_ui):
             self.cmdPause.focus_set()
             self.ProcessGerberFile(filename)
         else:
-            showinfo('注意啦', '暂不支持此类文件！')
+            showinfo('小弟不才', '暂不支持此类文件！')
     
     def cmdStartSimulator_Cmd(self, event=None):
         if not self.StartSimulator():
@@ -608,10 +621,28 @@ class Application(Application_ui):
         self.evStop.set()
     
     def cmdZDown_Cmd(self, event=None):
-        self.SendCommand(b'@z+0120')
+        try:
+            zLiftSteps = int(self.txtZLiftStepsVar.get())
+        except:
+            zLiftSteps = 0
+        
+        if not (0 < zLiftSteps <= 255):
+            showinfo('出错啦', 'Z轴步进设置有误，要求为1-255的正整数')
+            return
+            
+        self.SendCommand(('@z+%04d' % zLiftSteps).encode())
         
     def cmdZUp_Cmd(self, event=None):
-        self.SendCommand(b'@z-0120')
+        try:
+            zLiftSteps = int(self.txtZLiftStepsVar.get())
+        except:
+            zLiftSteps = 0
+        
+        if not (0 < zLiftSteps <= 255):
+            showinfo('出错啦', 'Z轴步进设置有误，要求为1-255的正整数')
+            return
+            
+        self.SendCommand(('@z-%04d' % zLiftSteps).encode())
     
     def cmdZMicroUp_Cmd(self, event=None):
         self.SendCommand(b'@z-0020')
@@ -644,7 +675,7 @@ class Application(Application_ui):
         try:
             self.ser = serial.Serial(self.cmbSerialVar.get(), 9600, timeout=self.serTimeout)
         except Exception as e:
-            showerror('出错啦',str(e))
+            showerror('出错啦', str(e))
             self.ser = None
             self.cmdCloseSerial.config(state='disabled')
         else:
@@ -682,32 +713,48 @@ class Application(Application_ui):
         self.SendCommand(b'@reposz')
     
     def cmdResetXYZ_Cmd(self, event=None):
+        if not self.ser:
+            showinfo('注意啦', '请先打开串口然后再执行命令')
+            return False
+            
         self.cmdResetX_Cmd()
         self.cmdResetY_Cmd()
         self.cmdResetZ_Cmd()
-    
-    #设置控制板的XYZ轴运动速度，值越小运动越快，注意速度太快则扭矩下降，并有可能丢步
+        
+    #设置控制板的XYZ轴运动速度，值越小运动越快，注意速度太快则扭矩下降，并有可能啸叫和丢步
     def cmdApplyAxisSpeed_Cmd(self, event=None):
+        if not self.ser:
+            showinfo('注意啦', '请先打开串口然后再执行命令')
+            return False
+            
         xSpeed = self.txtXSpeedVar.get()
         ySpeed = self.txtYSpeedVar.get()
         zSpeed = self.txtZSpeedVar.get()
+        zLiftSteps = self.txtZLiftStepsVar.get()
         try:
             xSpeed = int(xSpeed)
             ySpeed = int(ySpeed)
             zSpeed = int(zSpeed)
+            zLiftSteps = int(zLiftSteps)
         except Exception as e:
             showinfo('出错啦', str(e))
+            return
+        
+        if not (0 < zLiftSteps <= 255):
+            showinfo('出错啦', 'Z轴步进要求为1-255的正整数')
+            self.txtZLiftSteps.focus_set()
             return
         
         self.SendCommand(('@X%04d' % xSpeed).encode())
         self.SendCommand(('@Y%04d' % ySpeed).encode())
         self.SendCommand(('@Z%04d' % zSpeed).encode())
+        self.SendCommand(('@ZL%03d' % zLiftSteps).encode())
     
     #分析文件，获取最小值和最大值
     def cmdUpdateMinMax_Cmd(self, event=None):
         filename = self.txtSourceFileVar.get()
         if not filename:
-            showinfo('注意啦', '你忘了选择输入文件了！')
+            showinfo('注意啦', '你不是好像忘了选择输入文件了？')
             return
         
         if isGerberFile(filename):
@@ -723,7 +770,7 @@ class Application(Application_ui):
                 self.txtMinYVar.set('')
                 self.txtMaxYVar.set('')
         else:
-            showinfo('注意啦', '暂不支持此类文件！')
+            showinfo('小弟不才', '暂不支持此类文件！')
             
     #移动至左上角，用于确定打印区域
     def cmdMoveToLeftUp_Cmd(self, event=None):
@@ -786,7 +833,7 @@ class Application(Application_ui):
             self.AddCommandLog(cmd + b' -> sim')
             self.lstLog.update_idletasks()
             if response != b'*':
-                if not askyesno('命令出错','模拟器返回命令出错标识，是否继续下发其他命令？'):
+                if not askyesno('命令出错', '模拟器返回命令出错标识，是否继续下发其他命令？'):
                     return False
         
         return True
@@ -810,8 +857,8 @@ class Application(Application_ui):
         if logNum > keepNum + tolerance:
             self.lstLog.delete(0, tolerance * 2)
         
-        #ListBox界面刷新效率比较低，为效率考虑，每隔五行刷新一次
-        if logNum % 5 == 0:
+        #ListBox界面刷新效率比较低，为效率考虑，每隔3行刷新一次
+        if logNum % 3 == 0:
             self.lstLog.see(END)
             #self.lstLog.update_idletasks()
         
@@ -827,7 +874,8 @@ class Application(Application_ui):
             showinfo('注意啦', '出错啦：\n\n%s' % str(e))
     
     #分析GERBER文件，获取文件头信息，将绘图命令行转换为浮点数，返回一个字典：出错返回None
-    #{'header':{}, 'lines':[], 'minX':0.0, 'maxX':0.0, 'minY':0.0, 'maxY':0.0}
+    #{'header':{'xInteger':xx,'xDecimal':xx,'yInteger':xx,'yDecimal':xx,'zeroSuppress':xx,
+    # 'unit':xx,'apertures':{}}, 'lines':[], 'minX':0.0, 'maxX':0.0, 'minY':0.0, 'maxY':0.0}
     def ParseGerberFile(self, filename):
         try:
             with open(filename, 'r') as f1:
@@ -843,7 +891,7 @@ class Application(Application_ui):
         #先读取gerber文件头的一些内嵌信息
         gerberInfo = {'xInteger':2,'xDecimal':5,'yInteger':2,'yDecimal':5,
             'zeroSuppress':'L', 'unit':'inch', 'apertures':{}, }
-        for line in lines[:30]:
+        for line in lines[:50]: #在前面50行获取元信息，一般足够了
             #数字格式设定
             mat = re.match(r'^%FS([LTD]).*?X(\d\d)Y(\d\d).*', line)
             if mat:
@@ -868,8 +916,8 @@ class Application(Application_ui):
         
         dictRet['header'] = gerberInfo
         
-        #预处理文件内容，将坐标行转换为单位为微米的浮点数
-        #并且如果需要，则经过数学处理去掉负数坐标
+        #预处理文件内容，将绘图行转换为单位为微米的浮点数元祖，以便后续处理
+        #并且如果需要，则经过数学处理去掉负数坐标和平移图案
         minX, maxX, minY, maxY = self.PreProcess(lines, gerberInfo)
         dictRet['lines'] = lines
         dictRet['minX'] = minX
@@ -878,8 +926,7 @@ class Application(Application_ui):
         dictRet['maxY'] = maxY
         return dictRet
         
-    #分析Gerber文件，将其中的运动命令X...Y...D..行转换成CNC合法的命令发送
-    #注意：Gerber文件中的坐标不能有负数
+    #分析Gerber文件，将其中的绘图命令转换成CNC合法的命令发送
     def ProcessGerberFile(self, filename):
         gerber = self.ParseGerberFile(filename)
         
@@ -909,7 +956,7 @@ class Application(Application_ui):
         curAperture = defAperture = Aperture() #新建一个默认大小的Aperture
         lines = gerber['lines']
         
-        self.cmdApplyAxisSpeed_Cmd() #更新各轴速度
+        self.cmdApplyAxisSpeed_Cmd() #更新控制板的各轴速度和Z轴步进
         
         for lineNo, line in enumerate(lines, 1):
             if self.evExit.is_set():
@@ -920,13 +967,13 @@ class Application(Application_ui):
                 
                 #如果需要，可能需要画多根细线组成粗线
                 #返回一个元组列表[(x1,y1,z1),(x2,y2,z2),...]
-                if curAperture:
-                    lines2draw = curAperture.Render(prevX, prevY, x, y, z, penWidth)
-                elif z == '2':
+                if z == '2': #直接移动绘图笔的命令
                     lines2draw = [(x, y, z)]
+                elif curAperture:
+                    lines2draw = curAperture.Render(prevX, prevY, x, y, z, penWidth)
                 else:
                     showinfo('出错啦', 'Gerber文件有错，还没有设置Aperture就开始绘图了[第 %d 行]！' % lineNo)
-                    continue #忽略好了，不用退出
+                    return
                     
                 for x, y, z in lines2draw:
                     #一条斜线，雕刻机不支持直接画斜线，要用一系列的横线竖线逼近
@@ -944,7 +991,6 @@ class Application(Application_ui):
                     
                     prevX = x
                     prevY = y
-                    
             else: #其他信息行
                 mat = grblApt.match(line)
                 if mat: #aperture切换行
@@ -959,7 +1005,7 @@ class Application(Application_ui):
                             showinfo('出错啦', '没有设置aperture就开始绘图！ [第 %d 行]' % lineNo)
                             continue #忽略好了，不用退出
                         
-                        lines2draw = curAperture.Render(prevX, prevY, None, None, '3', penWidth)
+                        lines2draw = curAperture.Render(prevX, prevY, prevX, prevY, '3', penWidth)
                         for x, y, z in lines2draw:
                             #一条斜线，雕刻机不支持直接画斜线，要用一系列的横线竖线逼近
                             if (z == '1') and (x != prevX) and (y != prevY):
@@ -1137,7 +1183,9 @@ class Application(Application_ui):
             if not cmd:
                 time.sleep(0.1) #出错了或队列空，睡0.1s先
                 continue
-            elif evStop.is_set(): #按停止键后需要迅速将队列取空
+            elif evStop.is_set(): #按停止键后需要清空队列
+                cmdQueue.queue.clear()
+                self.lblQueueCmdNum['text'] = '剩余命令：0'
                 self.lblTimeToFinish['text'] = '预计剩余时间：00:00:00'
                 continue
             
@@ -1166,6 +1214,9 @@ class Application(Application_ui):
                 
                 if evPause.is_set() or evStop.is_set():
                     break
+            
+            if evPause.is_set() or evStop.is_set():
+                continue
                 
             if response:
                 self.AddCommandLog(response, True)
@@ -1359,10 +1410,6 @@ class Aperture:
             
             return res
         else:  #==3，在当前坐标复制当前aperture形状
-            if x is None or y is None: #如果xy为None，则使用上次坐标，否则使用当前坐标
-                x = prevX
-                y = prevY
-            
             for line in self.RenderMyself(x, y, penWidth):
                 #优化走笔，如果上次的终点等于这次的起点，则不用升起笔了
                 if tmpPrevX != line[0] or tmpPrevY != line[1]:
@@ -1398,12 +1445,22 @@ class Aperture:
         penStep = penWidth * 2 / 3 #为了尽量不要留隙，两次之间的间隔稍小于笔宽
         yStart = y1 - lineHalf + penHalf
         yEnd = y1 + lineHalf - penHalf
-        alphaStep = 0.017453293 * 30 #角度步进设定为30度(每角度0.017453293弧度)
+        alphaStep = ANGLE_PER_SIDE
         if x1 < x2:
+            #如果线太短，短于笔尖直径，则点一个点即可
+            if x2 - x1 <= penWidth:
+                meio = int(x1 + (x2 - x1) / 2)
+                return [(meio, y1, meio, y2)]
+                
             xStart = xLeft = x1 + penHalf
             xEnd = xRight = x2 - penHalf
             alphaStart = 0.0 #定义顺时针角度增加，垂直向上为0度
         else:
+            #如果线太短，短于笔尖直径，则点一个点即可
+            if x1 - x2 <= penWidth:
+                meio = int(x2 + (x1 - x2) / 2)
+                return [(meio, y1, meio, y2)]
+                
             xStart = xRight = x1 - penHalf
             xEnd = xLeft = x2 + penHalf
             alphaStart = math.pi * 2
@@ -1454,7 +1511,10 @@ class Aperture:
         left2right = 1 #用于优化走笔路线
         y = yStart + penStep
         if self.type_ != self.Rectangle:
-            radius -= penStep
+            if radius > penStep:
+                radius -= penStep
+            elif radius > penHalf:
+                radius -= penHalf
             while (y < yEnd): #填充内部
                 cosDeltaY = (radius - (y - yStart)) / radius
                 alpha = math.acos(cosDeltaY if cosDeltaY > -1.0 else -1.0) #避免浮点计算误差
@@ -1492,16 +1552,26 @@ class Aperture:
         penStep = penWidth * 2 / 3 #为了尽量不要留隙，两次之间的间隔稍小于笔宽
         xStart = x1 - lineHalf + penHalf
         xEnd = x1 + lineHalf - penHalf
-        alphaStep = 0.017453293 * 30 #角度步进设定为30度(每角度0.017453293弧度)
+        alphaStep = ANGLE_PER_SIDE
         if y1 < y2: #从上至下
+            #如果线太短，短于笔尖直径，则点一个点即可
+            if y2 - y1 < penWidth:
+                meio = int(y1 + (y2 - y1) / 2)
+                return [(x1, meio, x2, meio)]
+                
             yStart = yTop = y1 + penHalf
             yEnd = yBottom = y2 - penHalf
             alphaStart = 0.0 #定义逆时针角度增加，水平向左为0度
         else:
+            #如果线太短，短于笔尖直径，则点一个点即可
+            if y1 - y2 < penWidth:
+                meio = int(y2 + (y1 - y2) / 2)
+                return [(x1, meio, x2, meio)]
+                
             yStart = yBottom = y1 - penHalf
             yEnd = yTop = y2 + penHalf
             alphaStart = math.pi * 2
-            alphaStep = -alphaStep
+            alphaStep = -alphaStep #顺时针
         
         radius = lineHalf - penHalf
         
@@ -1549,7 +1619,10 @@ class Aperture:
         top2bottom = 1 #用于优化走笔路线
         x = xStart + penStep
         if self.type_ != self.Rectangle:
-            radius -= penStep
+            if radius > penStep:
+                radius -= penStep
+            elif radius > penHalf:
+                radius -= penHalf
             while (x < xEnd): #填充内部
                 sinDeltaX = (radius - (x - xStart)) / radius
                 alpha = math.asin(sinDeltaX if sinDeltaX > -1.0 else -1.0) #避免浮点计算误差
@@ -1656,14 +1729,14 @@ class Aperture:
     def RenderCircle(self, x, y, penWidth):
         #画圆的方法实际上是将圆微分成和圆内切的正多边形处理，如果边数够多，正多边形就是"圆"了。
         #从外圆开始画起，每隔penWidth * 2 /3 逐步缩小，一直画到内圆或直径小于penWidth / 2为止
+        if self.outerEdge1 <= penWidth: #直径太小，笔太粗，简直没法画了，只能下降笔，点到为止
+            return [(x, y, x, y)]
+            
         penHalf = penWidth / 2
         radius = self.outerEdge1 / 2 - penHalf
-        if radius <= penHalf:
-            radius = penHalf
         innerRadius = self.innerEdge1 / 2 + penHalf
         radiusStep = penWidth * 2 / 3
         res = []
-        alphaStep = 0.017453293 * 30 #角度步进设定为30度(每角度0.017453293弧度)，对于小焊盘够平滑了
         pi2 = math.pi * 2
         while (radius >= innerRadius):
             #开始点，从最左端开始，绕圆心一周
@@ -1675,7 +1748,7 @@ class Aperture:
                 currY = y - radius * math.sin(alpha)
                 
                 res.append((prevX, prevY, currX, currY))
-                alpha += alphaStep
+                alpha += ANGLE_PER_SIDE
                 prevX = currX
                 prevY = currY
                 
@@ -1856,7 +1929,7 @@ def SoundNotify(single=True):
         if single:
             winsound.Beep(800, 500)
         else:
-            winsound.Beep(800, 1000)
+            winsound.Beep(659, 1000)
             winsound.Beep(500, 1000)
     
 if __name__ == "__main__":
