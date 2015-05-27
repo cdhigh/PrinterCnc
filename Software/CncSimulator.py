@@ -14,11 +14,6 @@ License:
     2015-05-14
 """
 
-__Version__ = 'v1.0a'
-
-#!/usr/bin/env python
-#-*- coding:utf-8 -*-
-
 import os, sys
 try:
     from tkinter import *
@@ -190,7 +185,7 @@ class Application(Application_ui):
             xWidth = 0
         
         if xWidth <= 0:
-            showinfo('出错啦', 'X宽度设置值非法，请设置为一个正整数值')
+            #showinfo('出错啦', 'X宽度设置值非法，请设置为一个正整数值')
             return
         
         cavW = int(self.cavSim.winfo_width())

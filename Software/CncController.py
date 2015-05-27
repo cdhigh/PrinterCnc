@@ -25,7 +25,7 @@ License:
     2015-05-14
 """
 
-__Version__ = 'v1.0a'
+__Version__ = 'v1.0b'
 
 import os, sys, re, time, datetime, math
 try:
@@ -713,8 +713,8 @@ class Application(Application_ui):
         self.SendCommand(b'@reposz')
     
     def cmdResetXYZ_Cmd(self, event=None):
-        if not self.ser:
-            showinfo('注意啦', '请先打开串口然后再执行命令')
+        if not self.ser and not self.hasSimulator():
+            showinfo('注意啦', '请先打开串口或模拟器然后再执行命令')
             return False
             
         self.cmdResetX_Cmd()
@@ -1045,31 +1045,16 @@ class Application(Application_ui):
         if (gerberInfo['zeroSuppress'] == 'T'): #忽略后导零
             x = x.rstrip('0 ')
             y = y.rstrip('0 ')
+        
+        try:
+            x = int(x)
+            y = int(y)
+        except:
+            return (None, None)
             
         #加小数点
-        if (gerberInfo['xDecimal'] > 0):
-            x = x[:-gerberInfo['xDecimal']] + '.' + x[-gerberInfo['xDecimal']:]
-            #忽略前导零
-            if x.startswith('-'): #负数
-                x = x[1:]
-                xIsNegative = True
-            x = x.lstrip('0 ')
-            if x.startswith('.'):
-                x = '0' + x
-            if xIsNegative:
-                x = '-' + x
-                
-        if (gerberInfo['yDecimal'] > 0):
-            y = y[:-gerberInfo['yDecimal']] + '.' + y[-gerberInfo['yDecimal']:]
-            #忽略前导零
-            if y.startswith('-'): #负数
-                y = y[1:]
-                yIsNegative = True
-            y = y.lstrip('0 ')
-            if y.startswith('.'):
-                y = '0' + y
-            if yIsNegative:
-                y = '-' + y
+        x /= pow(10, gerberInfo['xDecimal'])
+        y /= pow(10, gerberInfo['yDecimal'])
         
         #转换成微米
         if gerberInfo['unit'] == 'inch':
@@ -1101,6 +1086,9 @@ class Application(Application_ui):
                 x, y = self.XY2Float(mat.group(1), mat.group(2), gerberInfo)
                 z = mat.group(3)
                 
+                if x is None or y is None:
+                    continue
+                    
                 #平移整个图案
                 x += self.shiftX
                 y += self.shiftY
