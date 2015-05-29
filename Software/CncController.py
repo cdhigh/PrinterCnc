@@ -10,8 +10,8 @@
     在一些更老的python版本下运行有可能需要在此文件开头增加一行声明
     from __future__ import unicode_literals
 GUI：
-    GUI界面采用Python内置的Tkinter标准库，使用作者自己的VisualTkinter工具自动生成界面代码。
-    <https://github.com/cdhigh/Visual-Tkinter-for-Python>
+    GUI界面采用Python内置的Tkinter标准库，使用作者自己的Tkinter Designer工具自动生成界面代码。
+    <https://github.com/cdhigh/tkinter-designer>
 致谢：
     此项目参考了<https://github.com/themrleon/OpenCdNC>
 代码托管：
