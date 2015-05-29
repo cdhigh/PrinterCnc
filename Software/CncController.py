@@ -25,7 +25,7 @@ License:
     2015-05-14
 """
 
-__Version__ = 'v1.0b'
+__Version__ = 'v1.0d'
 
 import os, sys, re, time, datetime, math
 try:
@@ -78,6 +78,7 @@ def GerberFileMask():
            ("Gerber Files","*.gtl"),("Gerber Files","*.top"),
            ("Gerber Files","*.bot"),("Gerber Files","*.gerber"),
            ("All Files", "*")]
+
 
 class Application_ui(Frame):
     #这个类仅实现界面生成功能，具体事件处理代码在子类Application中。
@@ -319,6 +320,10 @@ class Application_ui(Frame):
         self.lblSourceFile = Label(self.top, text='输入文件', style='TlblSourceFile.TLabel')
         self.lblSourceFile.place(relx=0.011, rely=0.015, relwidth=0.087, relheight=0.048)
 
+        self.txtZLiftStepsVar = StringVar(value='130')
+        self.txtZLiftSteps = Entry(self.frmSpeed, textvariable=self.txtZLiftStepsVar, font=('宋体',9))
+        self.txtZLiftSteps.place(relx=0.731, rely=0.132, relwidth=0.224, relheight=0.207)
+
         self.txtPenWidthVar = StringVar(value='0.6')
         self.txtPenWidth = Entry(self.frmSpeed, textvariable=self.txtPenWidthVar, font=('宋体',9))
         self.txtPenWidth.place(relx=0.731, rely=0.397, relwidth=0.224, relheight=0.207)
@@ -338,6 +343,10 @@ class Application_ui(Frame):
         self.txtXSpeedVar = StringVar(value='100')
         self.txtXSpeed = Entry(self.frmSpeed, textvariable=self.txtXSpeedVar, font=('宋体',9))
         self.txtXSpeed.place(relx=0.244, rely=0.132, relwidth=0.224, relheight=0.207)
+
+        self.style.configure('TlblZLiftSteps.TLabel', anchor='e', font=('宋体',9))
+        self.lblZLiftSteps = Label(self.frmSpeed, text='Z轴步进', style='TlblZLiftSteps.TLabel')
+        self.lblZLiftSteps.place(relx=0.51, rely=0.132, relwidth=0.18, relheight=0.14)
 
         self.style.configure('TlblPenWidth.TLabel', anchor='e', font=('宋体',9))
         self.lblPenWidth = Label(self.frmSpeed, text='笔尖直径', style='TlblPenWidth.TLabel')
@@ -367,7 +376,7 @@ class Application_ui(Frame):
         self.cmbKeepLogNumList = ['100','500','1000','2000','3000','4000','5000','8000','10000','20000',]
         self.cmbKeepLogNumVar = StringVar(value='100')
         self.cmbKeepLogNum = Combobox(self.frmLog, state='readonly', text='100', textvariable=self.cmbKeepLogNumVar, values=self.cmbKeepLogNumList, font=('宋体',9))
-        self.cmbKeepLogNum.place(relx=0.244, rely=0.9, relwidth=0.269, relheight=0.061)
+        self.cmbKeepLogNum.place(relx=0.244, rely=0.9, relwidth=0.269)
 
         self.style.configure('TcmdSaveLog.TButton', font=('宋体',9))
         self.cmdSaveLog = Button(self.frmLog, text='保存', command=self.cmdSaveLog_Cmd, style='TcmdSaveLog.TButton')
@@ -413,7 +422,7 @@ class Application_ui(Frame):
         self.cmbTimeOutList = ['1s x 10','1s x 30','1s x 60','1s x 120','3s x 5','3s x 10','3s x 30','3s x 60',]
         self.cmbTimeOutVar = StringVar(value='1s x 10')
         self.cmbTimeOut = Combobox(self.frmSerial, state='readonly', text='1s x 10', textvariable=self.cmbTimeOutVar, values=self.cmbTimeOutList, font=('宋体',9))
-        self.cmbTimeOut.place(relx=0.244, rely=0.539, relwidth=0.38, relheight=0.225)
+        self.cmbTimeOut.place(relx=0.244, rely=0.539, relwidth=0.38)
 
         self.style.configure('TcmdOpenSerial.TButton', font=('宋体',9))
         self.cmdOpenSerial = Button(self.frmSerial, text='打开', command=self.cmdOpenSerial_Cmd, style='TcmdOpenSerial.TButton')
@@ -422,7 +431,7 @@ class Application_ui(Frame):
         self.cmbSerialList = ['COM1','COM2','COM3','COM4','COM5','COM6','COM6','COM7','COM8','COM9',]
         self.cmbSerialVar = StringVar(value='COM1')
         self.cmbSerial = Combobox(self.frmSerial, text='COM1', textvariable=self.cmbSerialVar, values=self.cmbSerialList, font=('宋体',9))
-        self.cmbSerial.place(relx=0.244, rely=0.18, relwidth=0.38, relheight=0.225)
+        self.cmbSerial.place(relx=0.244, rely=0.18, relwidth=0.38)
 
         self.style.configure('TlblTimeOut.TLabel', anchor='e', font=('宋体',9))
         self.lblTimeOut = Label(self.frmSerial, text='超时时间', style='TlblTimeOut.TLabel')
@@ -432,15 +441,6 @@ class Application_ui(Frame):
         self.lblPortNo = Label(self.frmSerial, text='端口号', style='TlblPortNo.TLabel')
         self.lblPortNo.place(relx=0.044, rely=0.18, relwidth=0.158, relheight=0.191)
 
-        self.txtZLiftStepsVar = StringVar(value='130')
-        self.txtZLiftSteps = Entry(self.frmSpeed, textvariable=self.txtZLiftStepsVar, font=('宋体',9))
-        self.txtZLiftSteps.place(relx=0.731, rely=0.132, relwidth=0.224, relheight=0.207)
-
-        self.style.configure('TlblZLiftSteps.TLabel', anchor='e', font=('宋体',9))
-        self.lblZLiftSteps = Label(self.frmSpeed, text='Z轴步进', style='TlblZLiftSteps.TLabel')
-        self.lblZLiftSteps.place(relx=0.51, rely=0.132, relwidth=0.18, relheight=0.14)
-         
-           
 class Application(Application_ui):
     #这个类实现具体的事件处理回调函数。界面生成代码在Application_ui中。
     def __init__(self, master=None):
@@ -723,8 +723,8 @@ class Application(Application_ui):
         
     #设置控制板的XYZ轴运动速度，值越小运动越快，注意速度太快则扭矩下降，并有可能啸叫和丢步
     def cmdApplyAxisSpeed_Cmd(self, event=None):
-        if not self.ser:
-            showinfo('注意啦', '请先打开串口然后再执行命令')
+        if not self.ser and not self.hasSimulator():
+            showinfo('注意啦', '请先打开串口或模拟器然后再执行命令')
             return False
             
         xSpeed = self.txtXSpeedVar.get()
@@ -892,6 +892,9 @@ class Application(Application_ui):
         gerberInfo = {'xInteger':2,'xDecimal':5,'yInteger':2,'yDecimal':5,
             'zeroSuppress':'L', 'unit':'inch', 'apertures':{}, }
         for line in lines[:50]: #在前面50行获取元信息，一般足够了
+            if line.startswith('G04'): #注释行
+                continue
+                
             #数字格式设定
             mat = re.match(r'^%FS([LTD]).*?X(\d\d)Y(\d\d).*', line)
             if mat:
@@ -991,7 +994,7 @@ class Application(Application_ui):
                     
                     prevX = x
                     prevY = y
-            else: #其他信息行
+            elif not line.startswith('G04'): #跳过注释行
                 mat = grblApt.match(line)
                 if mat: #aperture切换行
                     try:
@@ -1051,7 +1054,7 @@ class Application(Application_ui):
             y = int(y)
         except:
             return (None, None)
-            
+        
         #加小数点
         x /= pow(10, gerberInfo['xDecimal'])
         y /= pow(10, gerberInfo['yDecimal'])
@@ -1077,10 +1080,13 @@ class Application(Application_ui):
         #开始逐行处理文件，
         #要遍历两次文件内容，第一遍用于确定是否有负数，最小负数是多少，第二遍改写文件内容
         linesNum = [] #存储中间结果的列表，每个元素为(x,y,z)或原始字符串
-        grblExp = re.compile(r'^X(-{0,1}\d+?)Y(-{0,1}\d+?)D0([123])\*')
+        grblExp = re.compile(r'^X([+-]{0,1}\d+?)Y([+-]{0,1}\d+?)D0([123])\*')
         firstLine = True
         for line in lines:
             line = line.strip()
+            if line.startswith('G04'): #注释行
+                continue
+                
             mat = grblExp.match(line)
             if mat: #坐标绘图行
                 x, y = self.XY2Float(mat.group(1), mat.group(2), gerberInfo)
@@ -1459,52 +1465,59 @@ class Aperture:
         #先画外框
         #第一根线
         res = [(xStart, yStart, xEnd, yStart),]
+        #半圆
         tmpPrevX = xEnd
         tmpPrevY = yStart
-        #半圆
         if self.type_ != self.Rectangle:
-            alpha = alphaStart
-            while abs(alpha - alphaStart) <= math.pi:
-                deltaX = radius * math.sin(alpha)
-                deltaY = radius * math.cos(alpha)
-                currX = xEnd + deltaX
-                currY = y1 - deltaY
-                res.append((tmpPrevX, tmpPrevY, currX, currY))
-                tmpPrevX = currX
-                tmpPrevY = currY
-                alpha += alphaStep
-            res.append((tmpPrevX, tmpPrevY, xEnd, yEnd))
+            if radius <= penHalf: #半径太小了，则仅在端点点一个点即可
+                res.append((xEnd, y1, xEnd, y2))
+            else:
+                alpha = alphaStart
+                while abs(alpha - alphaStart) <= math.pi:
+                    deltaX = radius * math.sin(alpha)
+                    deltaY = radius * math.cos(alpha)
+                    currX = xEnd + deltaX
+                    currY = y1 - deltaY
+                    res.append((tmpPrevX, tmpPrevY, currX, currY))
+                    tmpPrevX = currX
+                    tmpPrevY = currY
+                    alpha += alphaStep
+                res.append((tmpPrevX, tmpPrevY, xEnd, yEnd))
         else: #如果Aperture是矩形，则不画两端的半圆
             res.append((xEnd, yStart, xEnd, yEnd))
-            
+        
         res.append((xEnd, yEnd, xStart, yEnd)) #第二根线
         #另一个半圆
         if self.type_ != self.Rectangle:
-            tmpPrevX = xStart
-            tmpPrevY = yEnd
-            while abs(alpha - alphaStart) <= math.pi * 2:
-                deltaX = radius * math.sin(alpha)
-                deltaY = radius * math.cos(alpha)
-                currX = xStart + deltaX
-                currY = y1 - deltaY
-                res.append((tmpPrevX, tmpPrevY, currX, currY))
-                tmpPrevX = currX
-                tmpPrevY = currY
-                alpha += alphaStep
-            res.append((tmpPrevX, tmpPrevY, xStart, yStart))
+            if radius <= penHalf: #半径太小了，则仅在端点点一个点即可
+                res.append((xStart, y1, xStart, y2))
+            else:
+                tmpPrevX = xStart
+                tmpPrevY = yEnd
+                while abs(alpha - alphaStart) <= math.pi * 2:
+                    deltaX = radius * math.sin(alpha)
+                    deltaY = radius * math.cos(alpha)
+                    currX = xStart + deltaX
+                    currY = y1 - deltaY
+                    res.append((tmpPrevX, tmpPrevY, currX, currY))
+                    tmpPrevX = currX
+                    tmpPrevY = currY
+                    alpha += alphaStep
+                res.append((tmpPrevX, tmpPrevY, xStart, yStart))
         else:
             res.append((xStart, yEnd, xStart, yStart))
+        
+        if radius <= penHalf: #半径太小则不需要填充内部
+            return res
             
         #填充内部
         left2right = 1 #用于优化走笔路线
         y = yStart + penStep
         if self.type_ != self.Rectangle:
-            if radius > penStep:
-                radius -= penStep
-            elif radius > penHalf:
+            if radius > penHalf:
                 radius -= penHalf
             while (y < yEnd): #填充内部
-                cosDeltaY = (radius - (y - yStart)) / radius
+                cosDeltaY = (radius + penHalf - (y - yStart)) / radius
                 alpha = math.acos(cosDeltaY if cosDeltaY > -1.0 else -1.0) #避免浮点计算误差
                 deltaX = radius * math.sin(alpha)
                 if xStart < xEnd: #从左至右的直线
@@ -1568,51 +1581,59 @@ class Aperture:
         res = [(xStart, yStart, xStart, yEnd),]
         
         #半圆
+        tmpPrevX = xStart
+        tmpPrevY = yEnd
         if self.type_ != self.Rectangle:
-            tmpPrevX = xStart
-            tmpPrevY = yEnd
-            alpha = alphaStart
-            while abs(alpha - alphaStart) <= math.pi:
-                deltaX = radius * math.cos(alpha)
-                deltaY = radius * math.sin(alpha)
-                currX = x1 - deltaX
-                currY = yEnd + deltaY
-                res.append((tmpPrevX, tmpPrevY, currX, currY))
-                tmpPrevX = currX
-                tmpPrevY = currY
-                alpha += alphaStep
-            res.append((tmpPrevX, tmpPrevY, xEnd, yEnd))
+            if radius <= penHalf: #半径太小了，则仅在端点点一个点即可
+                res.append((x1, yEnd, x2, yEnd))
+            else:
+                alpha = alphaStart
+                while abs(alpha - alphaStart) <= math.pi:
+                    deltaX = radius * math.cos(alpha)
+                    deltaY = radius * math.sin(alpha)
+                    currX = x1 - deltaX
+                    currY = yEnd + deltaY
+                    res.append((tmpPrevX, tmpPrevY, currX, currY))
+                    tmpPrevX = currX
+                    tmpPrevY = currY
+                    alpha += alphaStep
+                res.append((tmpPrevX, tmpPrevY, xEnd, yEnd))
         else:
             res.append((xStart, yEnd, xEnd, yEnd))
         
         res.append((xEnd, yEnd, xEnd, yStart)) #第二根线
         #另一个半圆
         if self.type_ != self.Rectangle:
-            tmpPrevX = xEnd
-            tmpPrevY = yStart
-            while abs(alpha - alphaStart) <= math.pi * 2:
-                deltaX = radius * math.cos(alpha)
-                deltaY = radius * math.sin(alpha)
-                currX = x1 - deltaX
-                currY = yStart + deltaY
-                res.append((tmpPrevX, tmpPrevY, currX, currY))
-                tmpPrevX = currX
-                tmpPrevY = currY
-                alpha += alphaStep
-            res.append((tmpPrevX, tmpPrevY, xStart, yStart))
+            if radius <= penHalf: #半径太小了，则仅在端点点一个点即可
+                res.append((x1, yStart, x2, yStart))
+            else:
+                tmpPrevX = xEnd
+                tmpPrevY = yStart
+                while abs(alpha - alphaStart) <= math.pi * 2:
+                    deltaX = radius * math.cos(alpha)
+                    deltaY = radius * math.sin(alpha)
+                    currX = x1 - deltaX
+                    currY = yStart + deltaY
+                    res.append((tmpPrevX, tmpPrevY, currX, currY))
+                    tmpPrevX = currX
+                    tmpPrevY = currY
+                    alpha += alphaStep
+                res.append((tmpPrevX, tmpPrevY, xStart, yStart))
+            
         else:
             res.append((xEnd, yStart, xStart, yStart))
+        
+        if radius <= penHalf: #半径太小，两根线已经重叠，不需要填充内部了
+            return res
         
         #填充内部
         top2bottom = 1 #用于优化走笔路线
         x = xStart + penStep
         if self.type_ != self.Rectangle:
-            if radius > penStep:
-                radius -= penStep
-            elif radius > penHalf:
+            if radius > penHalf:
                 radius -= penHalf
             while (x < xEnd): #填充内部
-                sinDeltaX = (radius - (x - xStart)) / radius
+                sinDeltaX = (radius + penHalf - (x - xStart)) / radius
                 alpha = math.asin(sinDeltaX if sinDeltaX > -1.0 else -1.0) #避免浮点计算误差
                 deltaY = radius * math.cos(alpha)
                 if yStart < yEnd: #从上至下的直线

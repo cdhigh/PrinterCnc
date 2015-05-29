@@ -173,7 +173,7 @@ class Application(Application_ui):
         self.zPrevPos = '1' #'1' = down, '2' = up
         self.xPrevPos = 0
         self.yPrevPos = 0
-    
+        
     def setSimulatorWidth(self, width):
         self.txtXWidthVar.set(width)
     
@@ -265,7 +265,11 @@ class Application(Application_ui):
             lineWidth = int(penWidth * pixelPerMircon)
             if lineWidth < 1:
                 lineWidth = 1
-            self.cavSim.create_line(self.xPrevPos, self.yPrevPos, x, y, width=lineWidth)
+            if self.xPrevPos == x and self.xPrevPos == y: #打点，而不是画线
+                penHalf = lineWidth / 2 if lineWidth > 1 else 1
+                self.cavSim.create_oval(x - penHalf, y - penHalf, x + penHalf, y + penHalf, fill='black', width=1)
+            else:
+                self.cavSim.create_line(self.xPrevPos, self.yPrevPos, x, y, width=lineWidth)
             self.xPrevPos = x
             self.yPrevPos = y
             self.zPrevPos = '1'

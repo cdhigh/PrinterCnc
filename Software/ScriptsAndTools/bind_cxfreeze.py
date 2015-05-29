@@ -11,6 +11,8 @@ import sys
 import os
 from cx_Freeze import setup, Executable
 
+pyScriptFile = 'CncController.py'
+
 if sys.platform == "win32":
     base = "Win32GUI"
 else:
@@ -22,7 +24,7 @@ build_exe_options = {'optimize' : 2,
                      'include_files' : [(tclPath,'tcl'),],}
 
 exe = Executable(
-    script = 'CncController.py',
+    script = pyScriptFile,
     initScript = None,
     base = 'Win32GUI',
     targetName = 'CncController.exe',
@@ -35,6 +37,6 @@ setup( name = 'CncController',
         version = '0.2',
         description = 'CncController',
         options = {'build_exe': build_exe_options},
-        executables = [Executable('CncController.py', base = base,
+        executables = [Executable(pyScriptFile, base = base,
             icon='GUI/app_icon.ico', )])
 
