@@ -54,6 +54,7 @@ unsigned int yStepDelay = 120; //Y轴脉冲中的间隔时间
 unsigned int zStepDelay = 80; //Z轴脉冲中的间隔时间，Z轴是软驱电机，启动频率不能太高
 unsigned int xMinStepDelay = 50; //电机性能不好，速度无法提高，特使用一个加速过程
 unsigned int yMinStepDelay = 60; //电机性能不好，速度无法提高，特使用一个加速过程
+unsigned int stepDelayCnt = 100; //每隔多少步后开始升速，设置为0则为固定值
 
 //延时函数，一个循环刚好10个指令，在最后加上函数调用的花销7个指令即可。
 //假定4m晶体，则：
@@ -121,7 +122,7 @@ void XmoveAbsolute(unsigned int steps, unsigned char moveLeft)
         delayit(delayNum);
         X_STEP = 0;
         delayit(delayNum);
-        if (++runnedStep >= 50) //每50步提升一次速度
+        if ((stepDelayCnt > 0) && (++runnedStep >= stepDelayCnt)) //每隔一定的步数提升一次速度
         {
             runnedStep = 0;
             if (delayNum > xMinStepDelay)
@@ -192,7 +193,7 @@ void YmoveAbsolute(unsigned int steps, unsigned char moveUp)
         delayit(delayNum);
         Y_STEP = 0;
         delayit(delayNum);
-        if (++runnedStep >= 50) //每50步提升一次速度
+        if ((stepDelayCnt > 0) && (++runnedStep >= stepDelayCnt)) //每隔一定的步数提升一次速度
         {
             runnedStep = 0;
             if (delayNum > yMinStepDelay)
@@ -471,6 +472,15 @@ void ScanUart()
                 y[4] = 0;
                 zStepDelay = atol(y);
             }
+        }
+        else if (tmp == 'S') //设置升速的加速度
+        {
+            while (RCIF != 1); x[0] = RCREG;
+            while (RCIF != 1); x[1] = RCREG;
+            while (RCIF != 1); x[2] = RCREG;
+            while (RCIF != 1); x[3] = RCREG;
+            x[4] = 0;
+            stepDelayCnt = atol(x);
         }
         else if (tmp == 'B') //设置回差补偿步数，@BX000 或 @BY000
         {
