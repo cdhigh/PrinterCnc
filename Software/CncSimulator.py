@@ -35,7 +35,6 @@ else:  #Python 3.x
     #import tkinter.filedialog as tkFileDialog
     #import tkinter.simpledialog as tkSimpleDialog    #askstring()
 
-
 if getattr(sys, 'frozen', False): #在cxFreeze打包后
     __file__ = sys.executable
     
@@ -174,9 +173,21 @@ class Application(Application_ui):
         self.xPrevPos = 0
         self.yPrevPos = 0
         
+        self.xBacklash = 0
+        self.yBacklash = 0
+        self.xPrevMoveLeft = True
+        self.yPrevMoveUp = True
+        self.xStepsPerCm = 0
+        self.yStepsPerCm = 0
+        self.xPixelsPerStep = 0
+        self.yPixelsPerStep = 0
+        self.MirconsPerPixel = 0
+        
     def setSimulatorWidth(self, width):
         self.txtXWidthVar.set(width)
-    
+    def simulatorWidth(self):
+        return self.txtXWidthVar.get()
+        
     #X宽度更新后刷新Y高度
     def txtXWidth_Change(self, *args):
         try:
@@ -202,6 +213,7 @@ class Application(Application_ui):
     def cavSim_Motion(self, event=None):
         if not event:
             return
+            
         #坐标转换
         cavW = int(self.cavSim.winfo_width())
         cavH = int(self.cavSim.winfo_height())
@@ -220,62 +232,93 @@ class Application(Application_ui):
     
     #接收绘图命令，仿真控制板的处理
     def putDrawCmd(self, cmd, penWidth):
-        cmd = cmd.decode()
+        if penWidth is None: #非绘图命令
+            return b'*'
         
-        if cmd.startswith('@'):
-            return self.specialCmd(cmd[1:])
-        else:
-            return self.drawCmd(cmd, penWidth)
+        try:
+            cmd = cmd.decode()
+        except:
+            pass
+            
+        return self.drawCmd(cmd, penWidth)
     
-    def specialCmd(self, cmd):
-        if cmd == 'reposx':
+    def Reset(self, x=False, y=False, z=False):
+        if x:
             self.xPrevPos = 0
-        elif cmd == 'reposy':
+        if y:
             self.yPrevPos = 0
-        elif cmd == 'reposz':
+        if z:
             self.zPrevPos = '1'
-        return b'*'
         
-    #绘图命令：格式：x000000y000000z1
-    def drawCmd(self, cmd, penWidth):
-        if not cmd.startswith('x') or len(cmd) != 16:
-            return b'#'
-        
-        x = int(cmd[1:7])
-        y = int(cmd[8:14])
-        z = cmd[15]
-        
+    def UpdateProperties(self):
         #坐标转换
         cavW = int(self.cavSim.winfo_width())
         cavH = int(self.cavSim.winfo_height())
         try:
-            simW = int(self.txtXWidthVar.get()) * 1000 #转换为微米
+            simW = float(self.txtXWidthVar.get()) #单位为毫米
+            simH = float(self.txtYHeightVar.get())
         except:
-            showinfo('出错啦', '设置的XY宽度值无效，请更正后再继续')
-            return b'#'
-            
-        pixelPerMircon = cavW / simW #每微米多少像素
-        x = int(x * pixelPerMircon)
-        y = int(y * pixelPerMircon)
-        if z == '2':
-            self.xPrevPos = x
-            self.yPrevPos = y
-            self.zPrevPos = '2'
-        elif self.xPrevPos == x or self.yPrevPos == y:
-            lineWidth = int(penWidth * pixelPerMircon)
-            if lineWidth < 1:
-                lineWidth = 1
-            if self.xPrevPos == x and self.xPrevPos == y: #打点，而不是画线
-                penHalf = lineWidth / 2 if lineWidth > 1 else 1
-                self.cavSim.create_oval(x - penHalf, y - penHalf, x + penHalf, y + penHalf, fill='black', width=1)
+            #showinfo('出错啦', '设置的XY宽度值无效，请更正后再继续')
+            return False
+        
+        #每步多少像素
+        self.xPixelsPerStep = cavW / (self.xStepsPerCm / 10 * simW)
+        self.yPixelsPerStep = cavH / (self.yStepsPerCm / 10 * simH)
+        self.MirconsPerPixel = simW * 1000 / cavW #每像素多少微米
+        return True
+        
+    #绘图命令：格式：x+00000 y+00000 z+00000
+    def drawCmd(self, cmd, penWidth):
+        axis = cmd[0]
+        dir = cmd[1]
+        steps = int(cmd[2:])
+        
+        if axis == 'z':
+            if dir == '-': #不管往上移多少，都认为抬起画笔
+                self.zPrevPos = '2'
             else:
-                self.cavSim.create_line(self.xPrevPos, self.yPrevPos, x, y, width=lineWidth)
+                self.zPrevPos = '1'
+            return b'*'
+        
+        if axis == 'x':
+            if (self.xPrevMoveLeft and dir == '+') or (not self.xPrevMoveLeft and dir == '-'):
+                steps -= self.xBacklash
+            
+            if dir == '+':
+                x = self.xPrevPos + steps * self.xPixelsPerStep
+                self.xPrevMoveLeft = False
+            else:
+                x = self.xPrevPos - steps * self.xPixelsPerStep
+                self.xPrevMoveLeft = True
+            y = self.yPrevPos
+        elif axis == 'y':
+            if (self.yPrevMoveUp and dir == '+') or (not self.yPrevMoveUp and dir == '-'):
+                steps -= self.yBacklash
+            x = self.xPrevPos
+            if dir == '+':
+                y = self.yPrevPos + steps * self.yPixelsPerStep
+                self.yPrevMoveUp = False
+            else:
+                y = self.yPrevPos - steps * self.yPixelsPerStep
+                self.yPrevMoveUp = True
+        
+        if self.zPrevPos == '2':
             self.xPrevPos = x
             self.yPrevPos = y
-            self.zPrevPos = '1'
+            return b'*'
+        
+        lineWidth = int(penWidth / self.MirconsPerPixel)
+        if lineWidth < 1:
+            lineWidth = 1
+        if self.xPrevPos == x and self.xPrevPos == y: #打点，而不是画线
+            penHalf = lineWidth / 2 if lineWidth > 1 else 1
+            self.cavSim.create_oval(x - penHalf, y - penHalf, x + penHalf, y + penHalf, fill='black', width=1)
         else:
-            return b'#'
+            self.cavSim.create_line(self.xPrevPos, self.yPrevPos, x, y, width=lineWidth)
             
+        self.xPrevPos = x
+        self.yPrevPos = y
+        
         return b'*'
             
 if __name__ == "__main__":

@@ -10,19 +10,14 @@ Author: cdhigh
 //Z Axis - STEPPER MOTOR
 #define Z_DIR   RA1 //1 - down, 0 - up
 #define Z_STEP  RA0 //rising edge to take step
-#define Z_LIFT_STEPS 130
 
 //X Axis - STEPPER Motor
 #define X_DIR   RB7 //1 - left, 0 - right
 #define X_STEP  RB6 //rising edge to take step
-#define X_CM    1886 //steps for 1cm
-#define X_BACKLASH 94 //X轴回差，单位：步数，94步大约0.5mm
 
 //Y Axis - STEPPER MOTOR
 #define Y_DIR   RA7 //0 - up, 1 - down
 #define Y_STEP  RA6 //rising edge to take step
-#define Y_CM    1886  //Steps for 1 cm
-#define Y_BACKLASH 0
 
 //限位开关，低有效
 #define X_STOP_SW_LEFT    RB3

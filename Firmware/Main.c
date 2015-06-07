@@ -35,19 +35,7 @@ SOFTWARE.*/
 
 __CONFIG(INTIO & WDTDIS & MCLRDIS & BORDIS & LVPDIS);
 
-//#define _XTAL_FREQ 4000000 //使用内置rc振荡器
-
-//Z轴
-unsigned char zPrevPos = '1'; //'1' = down, '2' = up
-unsigned char zLiftSteps = Z_LIFT_STEPS; //z轴升起或下降的步数
-
-//X轴
-unsigned int xPrevPos = 0;	//Start at zero, upper left position
-unsigned char xBacklashSteps = X_BACKLASH; //回差补偿步数
-
-//Y轴
-unsigned int yPrevPos = 0;	//Start at zero, upper left position
-unsigned char yBacklashSteps = Y_BACKLASH; //回差补偿步数
+#define SERIAL_TIMEOUT 65530
 
 unsigned int xStepDelay = 100; //X轴脉冲中的间隔时间
 unsigned int yStepDelay = 120; //Y轴脉冲中的间隔时间
@@ -55,6 +43,7 @@ unsigned int zStepDelay = 80; //Z轴脉冲中的间隔时间，Z轴是软驱电�
 unsigned int xMinStepDelay = 50; //电机性能不好，速度无法提高，特使用一个加速过程
 unsigned int yMinStepDelay = 60; //电机性能不好，速度无法提高，特使用一个加速过程
 unsigned int stepDelayCnt = 100; //每隔多少步后开始升速，设置为0则为固定值
+
 
 //延时函数，一个循环刚好10个指令，在最后加上函数调用的花销7个指令即可。
 //假定4m晶体，则：
@@ -67,48 +56,19 @@ void delayit(unsigned int d)
 }
 
 //直接移动多少步，moveLeft=1为向左，=0为向右
-void XmoveAbsolute(unsigned int steps, unsigned char moveLeft)
+void Xmove(unsigned int steps, unsigned char moveLeft)
 {
-    unsigned int n, delayNum;
+    unsigned int n;
+    unsigned int delayNum;
     unsigned char runnedStep;
     
     if (steps == 0)
         return;
     
     if (moveLeft)
-    {
-        if (X_DIR == 0) //上次向右
-        {
-            X_DIR = 1;
-            for (n = xBacklashSteps; n > 0; n--) //消回差
-            {
-                if (X_STOP_SW_LEFT == 0)
-                    break;
-                
-                X_STEP = 1; //上升沿启动
-                delayit(xStepDelay);
-                X_STEP = 0;
-                delayit(xStepDelay);
-            }
-        }
-    }
+        X_DIR = 1;
     else
-    {
-        if (X_DIR == 1) //上次向左
-        {
-            X_DIR = 0;
-            for (n = xBacklashSteps; n > 0; n--) //消回差
-            {
-                if (X_STOP_SW_RIGHT == 0)
-                    break;
-                
-                X_STEP = 1; //上升沿启动
-                delayit(xStepDelay);
-                X_STEP = 0;
-                delayit(xStepDelay);
-            }
-        }
-    }
+        X_DIR = 0;
     
     delayNum = xStepDelay; //兼顾不丢步和速度考虑，使用一个加速过程
     runnedStep = 0;
@@ -128,59 +88,25 @@ void XmoveAbsolute(unsigned int steps, unsigned char moveLeft)
             if (delayNum > xMinStepDelay)
                 delayNum--;
         }
-        
-        if (moveLeft)
-            xPrevPos--;
-        else
-            xPrevPos++;
     }
 }
 
 //直接移动多少步，moveUp=1为向上，=0为向下
 //y轴电机齿轮组基本上没有回差，不需要补偿
-void YmoveAbsolute(unsigned int steps, unsigned char moveUp)
+void Ymove(unsigned int steps, unsigned char moveUp)
 {
-    unsigned int n, delayNum;
+    unsigned int n;
+    unsigned int delayNum;
     unsigned char runnedStep;
     
     if (steps == 0)
         return;
     
     if (moveUp)
-    {
-        if (Y_DIR == 1) //上次向下
-        {
-            Y_DIR = 0;
-            for (n = yBacklashSteps; n > 0; n--) //消回差
-            {
-                if (Y_STOP_SW_TOP == 0)
-                    break;
-                
-                Y_STEP = 1; //上升沿启动
-                delayit(yStepDelay);
-                Y_STEP = 0;
-                delayit(yStepDelay);
-            }
-        }
-    }
+        Y_DIR = 0;
     else
-    {
-        if (Y_DIR == 0) //上次向上
-        {
-            Y_DIR = 1;
-            for (n = yBacklashSteps; n > 0; n--) //消回差
-            {
-                if (Y_STOP_SW_BOTTOM == 0)
-                    break;
-                
-                Y_STEP = 1; //上升沿启动
-                delayit(yStepDelay);
-                Y_STEP = 0;
-                delayit(yStepDelay);
-            }
-        }
-    }
-    
+        Y_DIR = 1;
+        
     delayNum = yStepDelay; //兼顾不丢步和速度考虑，使用一个加速过程
     runnedStep = 0;
     for (n = steps; n > 0; n--)
@@ -199,24 +125,19 @@ void YmoveAbsolute(unsigned int steps, unsigned char moveUp)
             if (delayNum > yMinStepDelay)
                 delayNum--;
         }
-        
-        if (moveUp)
-            yPrevPos--;
-        else
-            yPrevPos++;
     }
 }
 
 //直接移动多少步，moveUp=1为向上，=0为向下
-void ZmoveAbsolute(unsigned char steps, unsigned char moveUp)
+void Zmove(unsigned int steps, unsigned char moveUp)
 {
-    unsigned char n;
-
+    unsigned int n;
+    
     if (moveUp)
         Z_DIR = 0;
     else
         Z_DIR = 1;
-
+    
     for (n = steps; n > 0; n--)
     {
         if ((moveUp && (Z_STOP_SW_TOP == 0))
@@ -230,290 +151,142 @@ void ZmoveAbsolute(unsigned char steps, unsigned char moveUp)
     }
 }
 
-//移动x轴，pos单位为步数
-void Xmove(unsigned int pos)
+//从串口取一个字符，超时则返回0
+unsigned char ReceiveOneChar()
 {
-    unsigned int c;
-    unsigned char moveLeft;
-
-    if (xPrevPos < pos)
-        moveLeft = 0;
-    else
-        moveLeft = 1;
-
-    //移动的绝对值
-    c = abs(pos - xPrevPos);
-
-    XmoveAbsolute(c, moveLeft);
-}
-
-//移动y轴，pos单位为步数
-void Ymove(unsigned int pos)
-{
-    unsigned int c;
-    unsigned char moveUp;
-
-    if (yPrevPos < pos)
-        moveUp = 0;
-    else
-        moveUp = 1;
-        
-    c = abs(pos - yPrevPos);
-    
-    YmoveAbsolute(c, moveUp);
-}
-
-//移动Z轴，pos单位为步数
-void Zmove(unsigned char pos)
-{
-    if (zPrevPos != pos)
+    volatile unsigned int cnt = SERIAL_TIMEOUT;
+    while ((RCIF != 1) && (cnt > 0))
     {
-        if (pos == '1') //down
-        {
-            ZmoveAbsolute(zLiftSteps, 0);
-            zPrevPos = '1';
-        }
-        else if (pos == '2') //up
-        {
-            ZmoveAbsolute(zLiftSteps, 1);
-            zPrevPos = '2';
-        }
+        cnt--;
     }
+    
+    return RCIF == 1 ? RCREG : '\0';
 }
 
-//将当前位置当做新的原点
-void Reset()
+//通过串口向外发送一个字符
+void SendOneChar(unsigned char ch)
 {
-    xPrevPos = 0;
-    yPrevPos = 0;
-    zPrevPos = '1';
-}
-
-//三轴位置复位，x轴回最左，y轴回最上，z轴回最下
-void ResetPosition()
-{
-    //先升起z轴才移动x和y轴
-    while (Z_STOP_SW_TOP)
-        ZmoveAbsolute(zLiftSteps, 1);
-    while (X_STOP_SW_LEFT)
-        XmoveAbsolute(X_CM, 1);
-    while (Y_STOP_SW_TOP)
-        YmoveAbsolute(Y_CM, 1);
+    volatile unsigned int cnt = SERIAL_TIMEOUT;
+    while ((TXIF != 1) && (cnt > 0))
+    {
+        cnt--;
+    }
     
-    while (Z_STOP_SW_BOTTOM)
-        ZmoveAbsolute(zLiftSteps, 0);
-    
-    Reset();
+    if (TXIF == 1)
+        TXREG = ch;
 }
 
 //获取串口命令，执行后返回回复字符
-void ScanUart()
+unsigned char ScanUart()
 {
-    unsigned char x[7],y[7],z,tmp, res;
-    unsigned int x_pos,y_pos;
+    unsigned char data[6], tmp, dir;
+    unsigned int steps;
     
-    tmp = RCREG;
-    x[6] = 0;
-    y[6] = 0;
-    res = '*';
+    tmp = ReceiveOneChar();
     
-    //格式：x000000y000000z1
-    if (tmp == 'x')
+    //格式：x+00000, y+00000, z+00000
+    if ((tmp == 'x') || (tmp == 'y') || (tmp == 'z'))
     {
-        //Get X
-        while (RCIF != 1); x[0] = RCREG;
-        while (RCIF != 1); x[1] = RCREG;
-        while (RCIF != 1); x[2] = RCREG;
-        while (RCIF != 1); x[3] = RCREG;
-        while (RCIF != 1); x[4] = RCREG;
-        while (RCIF != 1); x[5] = RCREG;
-        
-        while (RCIF != 1); tmp = RCREG; //letter 'y'
+        dir = ReceiveOneChar(); // + or -
+        if (dir == '+')
+            dir = 0;
+        else if (dir == '-')
+            dir = 1;
+        else
+            return '#';
             
-        //Get Y
-        while (RCIF != 1); y[0] = RCREG;
-        while (RCIF != 1); y[1] = RCREG;
-        while (RCIF != 1); y[2] = RCREG;
-        while (RCIF != 1); y[3] = RCREG;
-        while (RCIF != 1); y[4] = RCREG;
-        while (RCIF != 1); y[5] = RCREG;
+        data[0] = ReceiveOneChar();
+        data[1] = ReceiveOneChar();
+        data[2] = ReceiveOneChar();
+        data[3] = ReceiveOneChar();
+        data[4] = ReceiveOneChar();
+        data[5] = '\0';
         
-        while (RCIF != 1); tmp = RCREG; //letter 'z'
+        if ((data[0] == '\0') || (data[1] == '\0') || (data[2] == '\0')
+            || (data[3] == '\0') || (data[4] == '\0'))
+            return '#';
+            
+        steps = atoi(data);
         
-        //Get Z
-        while (RCIF != 1); z = RCREG;
-        
-        Zmove(z);	//Z轴优先移动
-        
-        //微米转换为步数
-        x_pos = atol(x) / (10000 / X_CM);
-        y_pos = atol(y) / (10000 / Y_CM);
-        
-        //仅支持一次单轴移动，水平或垂直
-        if ((xPrevPos == x_pos) || (yPrevPos == y_pos))
-        {
-            if (xPrevPos != x_pos)
-                Xmove(x_pos);
-            if (yPrevPos != y_pos)
-                Ymove(y_pos);
-        }
-        else if (z == '2') //Z轴抬起的情况下可以移动两轴
-        {
-            Xmove(x_pos);
-            Ymove(y_pos);
-        }
+        if (tmp == 'x')
+            Xmove(steps, dir);
+        else if (tmp == 'y')
+            Ymove(steps, dir);
         else
-            res = '#';
-        
-        while (TXIF != 1); TXREG = res; //返回答复消息
+            Zmove(steps, dir);
     }
-    else if (tmp == '@') //测试或调试命令
+    else if (tmp == 'X') //设置X轴步进脉冲初始延时时间和结束延时时间,XS000,XE000
     {
-        while (RCIF != 1); tmp = RCREG;
-        if (tmp == 'r') //repos[xyz] or reset
-        {
-            while (RCIF != 1); x[0] = RCREG;
-            while (RCIF != 1); x[1] = RCREG;
-            while (RCIF != 1); x[2] = RCREG;
-            while (RCIF != 1); x[3] = RCREG;
-            if ((x[0] == 'e') && (x[1] == 'p') && (x[2] == 'o') && (x[3] == 's'))
-            {
-                //repos则将当前位置做为原点
-                while (RCIF != 1); x[4] = RCREG;
-                if (x[4] == 'x')
-                    xPrevPos = 0;
-                else if (x[4] == 'y')
-                    yPrevPos = 0;
-                else if (x[4] == 'z')
-                    zPrevPos = '1';
-            }
-            else if ((x[0] == 'e') && (x[1] == 's') && (x[2] == 'e') && (x[3] == 't'))
-            {
-                ResetPosition();
-            }
-        }
-        else if (tmp == 'x') //按步数来移动x轴，格式：@x+0100 or @x-0010，必须为4位数字
-        {
-            while (RCIF != 1); tmp = RCREG;
-            while (RCIF != 1); x[0] = RCREG;
-            while (RCIF != 1); x[1] = RCREG;
-            while (RCIF != 1); x[2] = RCREG;
-            while (RCIF != 1); x[3] = RCREG;
-            x[4] = 0;
-            if (tmp == '+')
-                tmp = 0;
-            else
-                tmp = 1;
-            XmoveAbsolute(atol(x), tmp);
-        }
-        else if (tmp == 'y') //按步数来移动y轴, 格式：@y+0100 or @y-0010，必须为4位数字
-        {
-            while (RCIF != 1); tmp = RCREG;
-            while (RCIF != 1); y[0] = RCREG;
-            while (RCIF != 1); y[1] = RCREG;
-            while (RCIF != 1); y[2] = RCREG;
-            while (RCIF != 1); y[3] = RCREG;
-            y[4] = 0;
-            if (tmp == '+')
-                tmp = 0;
-            else
-                tmp = 1;
-            YmoveAbsolute(atol(y), tmp);
-        }
-        else if (tmp == 'z') //按步数来移动z轴, 格式：@z+0010 or @z-0010，必须为4位数字
-        {
-            while (RCIF != 1); tmp = RCREG;
-            while (RCIF != 1); y[0] = RCREG;
-            while (RCIF != 1); y[1] = RCREG;
-            while (RCIF != 1); y[2] = RCREG;
-            while (RCIF != 1); y[3] = RCREG;
-            y[4] = 0;
-            if (tmp == '+')
-                tmp = 0;
-            else
-                tmp = 1;
-            ZmoveAbsolute(atol(y), tmp);
-        }
-        else if (tmp == 'X') //设置X轴步进脉冲延时时间,@X0000
-        {
-            while (RCIF != 1); x[0] = RCREG;
-            while (RCIF != 1); x[1] = RCREG;
-            while (RCIF != 1); x[2] = RCREG;
-            while (RCIF != 1); x[3] = RCREG;
-            x[4] = 0;
-            xStepDelay = atol(x);
-        }
-        else if (tmp == 'Y') //设置Y轴步进脉冲延时时间,@Y0000
-        {
-            while (RCIF != 1); y[0] = RCREG;
-            while (RCIF != 1); y[1] = RCREG;
-            while (RCIF != 1); y[2] = RCREG;
-            while (RCIF != 1); y[3] = RCREG;
-            y[4] = 0;
-            yStepDelay = atol(y);
-        }
-        else if (tmp == 'Z') //设置Z轴步进脉冲延时时间，@Z0000 或Z轴升起步数，@ZL000
-        {
-            while (RCIF != 1); tmp = RCREG;
-            if (tmp == 'L')
-            {
-                while (RCIF != 1); y[0] = RCREG;
-                while (RCIF != 1); y[1] = RCREG;
-                while (RCIF != 1); y[2] = RCREG;
-                y[3] = 0;
-                zLiftSteps = atol(x);
-            }
-            else
-            {
-                y[0] = tmp;
-                while (RCIF != 1); y[1] = RCREG;
-                while (RCIF != 1); y[2] = RCREG;
-                while (RCIF != 1); y[3] = RCREG;
-                y[4] = 0;
-                zStepDelay = atol(y);
-            }
-        }
-        else if (tmp == 'S') //设置升速的加速度
-        {
-            while (RCIF != 1); x[0] = RCREG;
-            while (RCIF != 1); x[1] = RCREG;
-            while (RCIF != 1); x[2] = RCREG;
-            while (RCIF != 1); x[3] = RCREG;
-            x[4] = 0;
-            stepDelayCnt = atol(x);
-        }
-        else if (tmp == 'B') //设置回差补偿步数，@BX000 或 @BY000
-        {
-            while (RCIF != 1); tmp = RCREG;
-            while (RCIF != 1); x[0] = RCREG;
-            while (RCIF != 1); x[1] = RCREG;
-            while (RCIF != 1); x[2] = RCREG;
-            x[3] = 0;
-            if (tmp == 'X')
-                xBacklashSteps = atol(x);
-            else if (tmp == 'Y')
-                yBacklashSteps = atol(x);
-            else
-                res = '#';
-        }
+        tmp = ReceiveOneChar();
+        if ((tmp != 'S') && (tmp != 'E'))
+            return '#';
+            
+        data[0] = ReceiveOneChar();
+        data[1] = ReceiveOneChar();
+        data[2] = ReceiveOneChar();
+        data[3] = '\0';
+        if ((data[0] == '\0') || (data[1] == '\0') || (data[2] == '\0'))
+            return '#';
+            
+        if (tmp == 'S')
+            xStepDelay = atoi(data);
         else
-        {
-            res = '#';
-        }
-        
-        while (TXIF != 1); TXREG = res;
+            xMinStepDelay = atoi(data);
     }
-    else //非法命令
+    else if (tmp == 'Y') //设置Y轴步进脉冲延时时间,YS000, YE000
     {
-        while (TXIF != 1); TXREG = '#';
+        tmp = ReceiveOneChar();
+        if ((tmp != 'S') && (tmp != 'E'))
+            return '#';
+            
+        data[0] = ReceiveOneChar();
+        data[1] = ReceiveOneChar();
+        data[2] = ReceiveOneChar();
+        data[3] = '\0';
+        if ((data[0] == '\0') || (data[1] == '\0') || (data[2] == '\0'))
+            return '#';
+            
+        if (tmp == 'S')
+            yStepDelay = atoi(data);
+        else
+            yMinStepDelay = atoi(data);
     }
+    else if (tmp == 'Z') //设置Z轴步进脉冲延时时间，Z000
+    {
+        data[0] = ReceiveOneChar();
+        data[1] = ReceiveOneChar();
+        data[2] = ReceiveOneChar();
+        data[3] = '\0';
+        if ((data[0] == '\0') || (data[1] == '\0') || (data[2] == '\0'))
+            return '#';
+            
+        zStepDelay = atoi(data);
+    }
+    else if (tmp == 'A') //设置升速的加速度, A0000 
+    {
+        data[0] = ReceiveOneChar();
+        data[1] = ReceiveOneChar();
+        data[2] = ReceiveOneChar();
+        data[3] = ReceiveOneChar();
+        data[4] = '\0';
+        if ((data[0] == '\0') || (data[1] == '\0') || (data[2] == '\0') || (data[3] == '\0'))
+            return '#';
+            
+        stepDelayCnt = atoi(data);
+    }
+    else
+    {
+        return '\0'; //不支持的命令，不返回答复
+    }
+    
+    return '*';
 }
 
 
 //---------------------------------------------------
 void main()
 {
-    unsigned char n;
+    unsigned char n, res;
 
     TRISA = 0b00111100;
     PORTA = 0;
@@ -539,9 +312,7 @@ void main()
     //Wait 1 second (circuit stabilization)
     for (n = 10; n > 0; n--)
         delayit(10000);
-
-    Reset();
-
+    
     while (1)
     {
         if (OERR)	//避免阻塞，串口溢出后复位串口
@@ -549,10 +320,15 @@ void main()
             CREN = 0;
             CREN = 1;
         }
-
+        
         if (RCIF)	//有串口消息到来，处理串口消息
-            ScanUart();
-            
+        {
+            res = ScanUart();
+            if (res != '\0')
+            {
+                SendOneChar(res); //返回答复消息 
+            }
+        }
     }
 }
 

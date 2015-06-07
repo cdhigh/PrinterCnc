@@ -10,7 +10,7 @@
     在一些更老的python版本下运行有可能需要在此文件开头增加一行声明
     from __future__ import unicode_literals
 GUI：
-    GUI界面采用Python内置的Tkinter标准库，使用作者自己的Tkinter Designer工具自动生成界面代码。
+    GUI界面采用Python内置的Tkinter标准库，使用作者自己的TkinterDesigner工具自动生成界面代码。
     <https://github.com/cdhigh/tkinter-designer>
 致谢：
     此项目参考了<https://github.com/themrleon/OpenCdNC>
@@ -25,7 +25,7 @@ License:
     2015-05-14
 """
 
-__Version__ = 'v1.0d'
+__Version__ = 'v1.1'
 
 import os, sys, re, time, datetime, math
 try:
@@ -62,6 +62,7 @@ import serial
 
 CFG_FILE = 'CncController.ini'
 ANGLE_PER_SIDE = 0.017453293 * 10 #用多边形逼近圆形时的步进角度，值越小越圆，但数据量越大
+END_CMD = b'@$END#'
 
 if getattr(sys, 'frozen', False): #在cxFreeze打包后
     __file__ = sys.executable
@@ -79,13 +80,12 @@ def GerberFileMask():
            ("Gerber Files","*.bot"),("Gerber Files","*.gerber"),
            ("All Files", "*")]
 
-
 class Application_ui(Frame):
     #这个类仅实现界面生成功能，具体事件处理代码在子类Application中。
     def __init__(self, master=None):
         Frame.__init__(self, master)
         self.master.title('PrinterCnc Controller - <https://github.com/cdhigh>')
-        self.master.resizable(0,0)
+        #self.master.resizable(0,0)
         self.icondata = """
             R0lGODlhGAEXAfcAAP//////zP//mf//Zv//M///AP/M///MzP/Mmf/MZv/MM//MAP+Z
             //+ZzP+Zmf+ZZv+ZM/+ZAP9m//9mzP9mmf9mZv9mM/9mAP8z//8zzP8zmf8zZv8zM/8z
@@ -164,9 +164,9 @@ class Application_ui(Frame):
         # To center the window on the screen.
         ws = self.master.winfo_screenwidth()
         hs = self.master.winfo_screenheight()
-        x = (ws / 2) - (750 / 2)
-        y = (hs / 2) - (518 / 2)
-        self.master.geometry('%dx%d+%d+%d' % (750,518,x,y))
+        x = (ws / 2) - (747 / 2)
+        y = (hs / 2) - (541 / 2)
+        self.master.geometry('%dx%d+%d+%d' % (747,541,x,y))
         self.createWidgets()
 
     def createWidgets(self):
@@ -175,7 +175,7 @@ class Application_ui(Frame):
         self.style = Style()
 
         self.tabPosition = Notebook(self.top)
-        self.tabPosition.place(relx=0.011, rely=0.51, relwidth=0.481, relheight=0.342)
+        self.tabPosition.place(relx=0.011, rely=0.414, relwidth=0.483, relheight=0.327)
 
         self.tabPosition__Tab1 = Frame(self.tabPosition)
         self.style.configure('TcmdZMicroUp.TButton', font=('宋体',9))
@@ -264,156 +264,197 @@ class Application_ui(Frame):
         self.lblMinX.place(relx=0.133, rely=0.149, relwidth=0.114, relheight=0.106)
         self.tabPosition.add(self.tabPosition__Tab2, text='打印区域定位')
 
+        self.tabPosition__Tab3 = Frame(self.tabPosition)
+        self.chkOmitRegionCmdVar = IntVar(value=0)
+        self.style.configure('TchkOmitRegionCmd.TCheckbutton', font=('宋体',9))
+        self.chkOmitRegionCmd = Checkbutton(self.tabPosition__Tab3, text='忽略区域绘图命令', variable=self.chkOmitRegionCmdVar, style='TchkOmitRegionCmd.TCheckbutton')
+        self.chkOmitRegionCmd.place(relx=0.066, rely=0.348, relwidth=0.38, relheight=0.106)
+        self.chkForceHoleVar = IntVar(value=0)
+        self.style.configure('TchkForceHole.TCheckbutton', font=('宋体',9))
+        self.chkForceHole = Checkbutton(self.tabPosition__Tab3, text='强制所有焊盘开孔', variable=self.chkForceHoleVar, style='TchkForceHole.TCheckbutton')
+        self.chkForceHole.place(relx=0.066, rely=0.149, relwidth=0.402, relheight=0.106)
+        self.txtMinHoleVar = StringVar(value='0.8')
+        self.txtMinHole = Entry(self.tabPosition__Tab3, textvariable=self.txtMinHoleVar, font=('宋体',9))
+        self.txtMinHole.place(relx=0.753, rely=0.149, relwidth=0.18, relheight=0.112)
+        self.style.configure('TlblMinHole.TLabel', anchor='e', font=('宋体',9))
+        self.lblMinHole = Label(self.tabPosition__Tab3, text='最小开孔(mm)', style='TlblMinHole.TLabel')
+        self.lblMinHole.place(relx=0.465, rely=0.149, relwidth=0.269, relheight=0.106)
+        self.tabPosition.add(self.tabPosition__Tab3, text='其他配置')
+
         self.style.configure('TcmdStartSimulator.TButton', font=('宋体',9))
         self.cmdStartSimulator = Button(self.top, text='打开模拟器(E)', underline=6, command=self.cmdStartSimulator_Cmd, style='TcmdStartSimulator.TButton')
-        self.cmdStartSimulator.place(relx=0.032, rely=0.896, relwidth=0.161, relheight=0.079)
+        self.cmdStartSimulator.place(relx=0.032, rely=0.902, relwidth=0.162, relheight=0.076)
         self.top.bind_all('<Alt-E>', lambda e: self.cmdStartSimulator.focus_set() or self.cmdStartSimulator.invoke())
         self.top.bind_all('<Alt-e>', lambda e: self.cmdStartSimulator.focus_set() or self.cmdStartSimulator.invoke())
 
-        self.style.configure('TfrmSpeed.TLabelframe', font=('宋体',9))
-        self.style.configure('TfrmSpeed.TLabelframe.Label', font=('宋体',9))
-        self.frmSpeed = LabelFrame(self.top, text='速度（值越小越快）/ 笔宽（mm）', style='TfrmSpeed.TLabelframe')
-        self.frmSpeed.place(relx=0.011, rely=0.263, relwidth=0.481, relheight=0.234)
-
         self.style.configure('TcmdPause.TButton', font=('宋体',9))
         self.cmdPause = Button(self.top, text='暂停(P)', underline=3, command=self.cmdPause_Cmd, style='TcmdPause.TButton')
-        self.cmdPause.place(relx=0.544, rely=0.896, relwidth=0.161, relheight=0.079)
+        self.cmdPause.place(relx=0.546, rely=0.902, relwidth=0.162, relheight=0.076)
         self.top.bind_all('<Alt-P>', lambda e: self.cmdPause.focus_set() or self.cmdPause.invoke())
         self.top.bind_all('<Alt-p>', lambda e: self.cmdPause.focus_set() or self.cmdPause.invoke())
 
         self.style.configure('TcmdStop.TButton', background='#F0F0F0', font=('宋体',9))
         self.cmdStop = Button(self.top, text='停止(T)', underline=3, command=self.cmdStop_Cmd, style='TcmdStop.TButton')
-        self.cmdStop.place(relx=0.8, rely=0.896, relwidth=0.161, relheight=0.079)
+        self.cmdStop.place(relx=0.803, rely=0.902, relwidth=0.162, relheight=0.076)
         self.top.bind_all('<Alt-T>', lambda e: self.cmdStop.focus_set() or self.cmdStop.invoke())
         self.top.bind_all('<Alt-t>', lambda e: self.cmdStop.focus_set() or self.cmdStop.invoke())
 
         self.style.configure('TfrmManualCmd.TLabelframe', font=('宋体',9))
         self.style.configure('TfrmManualCmd.TLabelframe.Label', font=('宋体',9))
         self.frmManualCmd = LabelFrame(self.top, text='手动执行命令', style='TfrmManualCmd.TLabelframe')
-        self.frmManualCmd.place(relx=0.501, rely=0.726, relwidth=0.481, relheight=0.125)
+        self.frmManualCmd.place(relx=0.503, rely=0.754, relwidth=0.483, relheight=0.105)
 
         self.style.configure('TfrmLog.TLabelframe', font=('宋体',9))
         self.style.configure('TfrmLog.TLabelframe.Label', font=('宋体',9))
         self.frmLog = LabelFrame(self.top, text='收发数据', style='TfrmLog.TLabelframe')
-        self.frmLog.place(relx=0.501, rely=0.077, relwidth=0.481, relheight=0.635)
+        self.frmLog.place(relx=0.503, rely=0.251, relwidth=0.483, relheight=0.49)
 
         self.style.configure('TfrmSerial.TLabelframe', font=('宋体',9))
         self.style.configure('TfrmSerial.TLabelframe.Label', font=('宋体',9))
         self.frmSerial = LabelFrame(self.top, text='端口设置', style='TfrmSerial.TLabelframe')
-        self.frmSerial.place(relx=0.011, rely=0.077, relwidth=0.481, relheight=0.172)
+        self.frmSerial.place(relx=0.503, rely=0.074, relwidth=0.483, relheight=0.165)
 
         self.style.configure('TcmdStart.TButton', font=('宋体',9))
         self.cmdStart = Button(self.top, text='启动(S)', underline=3, command=self.cmdStart_Cmd, style='TcmdStart.TButton')
-        self.cmdStart.place(relx=0.288, rely=0.896, relwidth=0.161, relheight=0.079)
+        self.cmdStart.place(relx=0.289, rely=0.902, relwidth=0.162, relheight=0.076)
         self.top.bind_all('<Alt-S>', lambda e: self.cmdStart.focus_set() or self.cmdStart.invoke())
         self.top.bind_all('<Alt-s>', lambda e: self.cmdStart.focus_set() or self.cmdStart.invoke())
 
         self.style.configure('TcmdChooseFile.TButton', font=('宋体',9))
         self.cmdChooseFile = Button(self.top, text='...', command=self.cmdChooseFile_Cmd, style='TcmdChooseFile.TButton')
-        self.cmdChooseFile.place(relx=0.928, rely=0.015, relwidth=0.055, relheight=0.048)
+        self.cmdChooseFile.place(relx=0.932, rely=0.015, relwidth=0.055, relheight=0.046)
 
         self.txtSourceFileVar = StringVar(value='')
         self.txtSourceFile = Entry(self.top, textvariable=self.txtSourceFileVar, font=('宋体',9))
-        self.txtSourceFile.place(relx=0.107, rely=0.015, relwidth=0.812, relheight=0.048)
+        self.txtSourceFile.place(relx=0.107, rely=0.015, relwidth=0.815, relheight=0.046)
 
         self.style.configure('TlblSourceFile.TLabel', anchor='e', font=('宋体',9))
         self.lblSourceFile = Label(self.top, text='输入文件', style='TlblSourceFile.TLabel')
-        self.lblSourceFile.place(relx=0.011, rely=0.015, relwidth=0.087, relheight=0.048)
+        self.lblSourceFile.place(relx=0.011, rely=0.015, relwidth=0.087, relheight=0.046)
 
-        self.txtZLiftStepsVar = StringVar(value='130')
-        self.txtZLiftSteps = Entry(self.frmSpeed, textvariable=self.txtZLiftStepsVar, font=('宋体',9))
-        self.txtZLiftSteps.place(relx=0.731, rely=0.132, relwidth=0.224, relheight=0.207)
+        self.tabMachine = Notebook(self.top)
+        self.tabMachine.place(relx=0.011, rely=0.074, relwidth=0.483, relheight=0.327)
 
-        self.txtPenWidthVar = StringVar(value='0.6')
-        self.txtPenWidth = Entry(self.frmSpeed, textvariable=self.txtPenWidthVar, font=('宋体',9))
-        self.txtPenWidth.place(relx=0.731, rely=0.397, relwidth=0.224, relheight=0.207)
-
-        self.style.configure('TcmdApplyAxisSpeed.TButton', font=('宋体',9))
-        self.cmdApplyAxisSpeed = Button(self.frmSpeed, text='应用', command=self.cmdApplyAxisSpeed_Cmd, style='TcmdApplyAxisSpeed.TButton')
-        self.cmdApplyAxisSpeed.place(relx=0.554, rely=0.661, relwidth=0.402, relheight=0.207)
-
+        self.tabMachine__Tab1 = Frame(self.tabMachine)
         self.txtZSpeedVar = StringVar(value='80')
-        self.txtZSpeed = Entry(self.frmSpeed, textvariable=self.txtZSpeedVar, font=('宋体',9))
-        self.txtZSpeed.place(relx=0.244, rely=0.661, relwidth=0.224, relheight=0.207)
-
+        self.txtZSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtZSpeedVar, font=('宋体',9))
+        self.txtZSpeed.place(relx=0.244, rely=0.497, relwidth=0.224, relheight=0.155)
         self.txtYSpeedVar = StringVar(value='120')
-        self.txtYSpeed = Entry(self.frmSpeed, textvariable=self.txtYSpeedVar, font=('宋体',9))
-        self.txtYSpeed.place(relx=0.244, rely=0.397, relwidth=0.224, relheight=0.207)
-
+        self.txtYSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtYSpeedVar, font=('宋体',9))
+        self.txtYSpeed.place(relx=0.244, rely=0.298, relwidth=0.224, relheight=0.155)
         self.txtXSpeedVar = StringVar(value='100')
-        self.txtXSpeed = Entry(self.frmSpeed, textvariable=self.txtXSpeedVar, font=('宋体',9))
-        self.txtXSpeed.place(relx=0.244, rely=0.132, relwidth=0.224, relheight=0.207)
-
-        self.style.configure('TlblZLiftSteps.TLabel', anchor='e', font=('宋体',9))
-        self.lblZLiftSteps = Label(self.frmSpeed, text='Z轴步进', style='TlblZLiftSteps.TLabel')
-        self.lblZLiftSteps.place(relx=0.51, rely=0.132, relwidth=0.18, relheight=0.14)
-
-        self.style.configure('TlblPenWidth.TLabel', anchor='e', font=('宋体',9))
-        self.lblPenWidth = Label(self.frmSpeed, text='笔尖直径', style='TlblPenWidth.TLabel')
-        self.lblPenWidth.place(relx=0.51, rely=0.397, relwidth=0.18, relheight=0.14)
-
+        self.txtXSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtXSpeedVar, font=('宋体',9))
+        self.txtXSpeed.place(relx=0.244, rely=0.099, relwidth=0.224, relheight=0.155)
         self.style.configure('TlblZSpeed.TLabel', anchor='e', font=('宋体',9))
-        self.lblZSpeed = Label(self.frmSpeed, text='Z轴速度', style='TlblZSpeed.TLabel')
-        self.lblZSpeed.place(relx=0.022, rely=0.661, relwidth=0.18, relheight=0.14)
-
+        self.lblZSpeed = Label(self.tabMachine__Tab1, text='Z轴速度', style='TlblZSpeed.TLabel')
+        self.lblZSpeed.place(relx=0.022, rely=0.497, relwidth=0.18, relheight=0.106)
         self.style.configure('TlblYSpeed.TLabel', anchor='e', font=('宋体',9))
-        self.lblYSpeed = Label(self.frmSpeed, text='Y轴速度', style='TlblYSpeed.TLabel')
-        self.lblYSpeed.place(relx=0.022, rely=0.397, relwidth=0.18, relheight=0.14)
-
+        self.lblYSpeed = Label(self.tabMachine__Tab1, text='Y轴速度', style='TlblYSpeed.TLabel')
+        self.lblYSpeed.place(relx=0.022, rely=0.298, relwidth=0.18, relheight=0.106)
         self.style.configure('TlblXSpeed.TLabel', anchor='e', font=('宋体',9))
-        self.lblXSpeed = Label(self.frmSpeed, text='X轴速度', style='TlblXSpeed.TLabel')
-        self.lblXSpeed.place(relx=0.022, rely=0.132, relwidth=0.18, relheight=0.14)
+        self.lblXSpeed = Label(self.tabMachine__Tab1, text='X轴速度', style='TlblXSpeed.TLabel')
+        self.lblXSpeed.place(relx=0.022, rely=0.099, relwidth=0.18, relheight=0.106)
+        self.txtYMaxSpeedVar = StringVar(value='50')
+        self.txtYMaxSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtYMaxSpeedVar, font=('宋体',9))
+        self.txtYMaxSpeed.place(relx=0.731, rely=0.298, relwidth=0.224, relheight=0.155)
+        self.txtXMaxSpeedVar = StringVar(value='50')
+        self.txtXMaxSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtXMaxSpeedVar, font=('宋体',9))
+        self.txtXMaxSpeed.place(relx=0.731, rely=0.099, relwidth=0.224, relheight=0.155)
+        self.style.configure('TlblYMaxSpeed.TLabel', anchor='e', font=('宋体',9))
+        self.lblYMaxSpeed = Label(self.tabMachine__Tab1, text='Y轴最快', style='TlblYMaxSpeed.TLabel')
+        self.lblYMaxSpeed.place(relx=0.51, rely=0.298, relwidth=0.18, relheight=0.106)
+        self.style.configure('TlblXMaxSpeed.TLabel', anchor='e', font=('宋体',9))
+        self.lblXMaxSpeed = Label(self.tabMachine__Tab1, text='X轴最快', style='TlblXMaxSpeed.TLabel')
+        self.lblXMaxSpeed.place(relx=0.51, rely=0.099, relwidth=0.18, relheight=0.106)
+        self.txtAccelerationVar = StringVar(value='100')
+        self.txtAcceleration = Entry(self.tabMachine__Tab1, textvariable=self.txtAccelerationVar, font=('宋体',9))
+        self.txtAcceleration.place(relx=0.731, rely=0.497, relwidth=0.224, relheight=0.155)
+        self.style.configure('TlblAcceleration.TLabel', anchor='e', font=('宋体',9))
+        self.lblAcceleration = Label(self.tabMachine__Tab1, text='加速度', style='TlblAcceleration.TLabel')
+        self.lblAcceleration.place(relx=0.51, rely=0.497, relwidth=0.18, relheight=0.106)
+        self.style.configure('TcmdApplyAxisSpeed.TButton', font=('宋体',9))
+        self.cmdApplyAxisSpeed = Button(self.tabMachine__Tab1, text='应用', command=self.cmdApplyAxisSpeed_Cmd, style='TcmdApplyAxisSpeed.TButton')
+        self.cmdApplyAxisSpeed.place(relx=0.288, rely=0.745, relwidth=0.402, relheight=0.155)
+        self.tabMachine.add(self.tabMachine__Tab1, text='轴速度（越小越快）')
+
+        self.tabMachine__Tab2 = Frame(self.tabMachine)
+        self.txtXStepsPerCmVar = StringVar(value='1886')
+        self.txtXStepsPerCm = Entry(self.tabMachine__Tab2, textvariable=self.txtXStepsPerCmVar, font=('宋体',9))
+        self.txtXStepsPerCm.place(relx=0.355, rely=0.099, relwidth=0.18, relheight=0.155)
+        self.style.configure('TlblXStepsPerCm.TLabel', anchor='e', font=('宋体',9))
+        self.lblXStepsPerCm = Label(self.tabMachine__Tab2, text='X轴每CM步进数', style='TlblXStepsPerCm.TLabel')
+        self.lblXStepsPerCm.place(relx=0.066, rely=0.099, relwidth=0.269, relheight=0.106)
+        self.txtXBacklashVar = StringVar(value='94')
+        self.txtXBacklash = Entry(self.tabMachine__Tab2, textvariable=self.txtXBacklashVar, font=('宋体',9))
+        self.txtXBacklash.place(relx=0.355, rely=0.298, relwidth=0.18, relheight=0.155)
+        self.style.configure('TlblXBacklash.TLabel', anchor='e', font=('宋体',9))
+        self.lblXBacklash = Label(self.tabMachine__Tab2, text='X轴回差', style='TlblXBacklash.TLabel')
+        self.lblXBacklash.place(relx=0.066, rely=0.298, relwidth=0.269, relheight=0.106)
+        self.txtYStepsPerCmVar = StringVar(value='1886')
+        self.txtYStepsPerCm = Entry(self.tabMachine__Tab2, textvariable=self.txtYStepsPerCmVar, font=('宋体',9))
+        self.txtYStepsPerCm.place(relx=0.355, rely=0.497, relwidth=0.18, relheight=0.155)
+        self.style.configure('TlblYStepsPerCm.TLabel', anchor='e', font=('宋体',9))
+        self.lblYStepsPerCm = Label(self.tabMachine__Tab2, text='Y轴每CM步进数', style='TlblYStepsPerCm.TLabel')
+        self.lblYStepsPerCm.place(relx=0.066, rely=0.497, relwidth=0.269, relheight=0.106)
+        self.txtYBacklashVar = StringVar(value='0')
+        self.txtYBacklash = Entry(self.tabMachine__Tab2, textvariable=self.txtYBacklashVar, font=('宋体',9))
+        self.txtYBacklash.place(relx=0.355, rely=0.696, relwidth=0.18, relheight=0.155)
+        self.style.configure('TlblYBacklash.TLabel', anchor='e', font=('宋体',9))
+        self.lblYBacklash = Label(self.tabMachine__Tab2, text='Y轴回差', style='TlblYBacklash.TLabel')
+        self.lblYBacklash.place(relx=0.066, rely=0.696, relwidth=0.269, relheight=0.106)
+        self.txtZLiftStepsVar = StringVar(value='130')
+        self.txtZLiftSteps = Entry(self.tabMachine__Tab2, textvariable=self.txtZLiftStepsVar, font=('宋体',9))
+        self.txtZLiftSteps.place(relx=0.776, rely=0.099, relwidth=0.18, relheight=0.155)
+        self.style.configure('TlblZLiftSteps.TLabel', anchor='e', font=('宋体',9))
+        self.lblZLiftSteps = Label(self.tabMachine__Tab2, text='Z轴升起', style='TlblZLiftSteps.TLabel')
+        self.lblZLiftSteps.place(relx=0.576, rely=0.099, relwidth=0.158, relheight=0.106)
+        self.txtPenWidthVar = StringVar(value='0.6')
+        self.txtPenWidth = Entry(self.tabMachine__Tab2, textvariable=self.txtPenWidthVar, font=('宋体',9))
+        self.txtPenWidth.place(relx=0.776, rely=0.298, relwidth=0.18, relheight=0.155)
+        self.style.configure('TlblPenWidth.TLabel', anchor='e', font=('宋体',9))
+        self.lblPenWidth = Label(self.tabMachine__Tab2, text='笔尖直径', style='TlblPenWidth.TLabel')
+        self.lblPenWidth.place(relx=0.576, rely=0.298, relwidth=0.158, relheight=0.106)
+        self.tabMachine.add(self.tabMachine__Tab2, text='控制板参数')
+
+        self.style.configure('TfrmStatus.TLabelframe', font=('宋体',9))
+        self.style.configure('TfrmStatus.TLabelframe.Label', font=('宋体',9))
+        self.frmStatus = LabelFrame(self.top, text='', style='TfrmStatus.TLabelframe')
+        self.frmStatus.place(relx=0.011, rely=0.754, relwidth=0.483, relheight=0.105)
 
         self.style.configure('TcmdSendCommand.TButton', font=('宋体',9))
         self.cmdSendCommand = Button(self.frmManualCmd, text='执行', command=self.cmdSendCommand_Cmd, style='TcmdSendCommand.TButton')
-        self.cmdSendCommand.place(relx=0.842, rely=0.354, relwidth=0.136, relheight=0.4)
+        self.cmdSendCommand.place(relx=0.842, rely=0.263, relwidth=0.136, relheight=0.456)
 
         self.txtManualCommandVar = StringVar(value='')
         self.txtManualCommand = Entry(self.frmManualCmd, textvariable=self.txtManualCommandVar, font=('Courier New',12))
-        self.txtManualCommand.place(relx=0.044, rely=0.354, relwidth=0.778, relheight=0.4)
+        self.txtManualCommand.place(relx=0.044, rely=0.263, relwidth=0.778, relheight=0.456)
         self.txtManualCommand.bind('<Return>', self.txtManualCommand_Return)
 
         self.cmbKeepLogNumList = ['100','500','1000','2000','3000','4000','5000','8000','10000','20000',]
         self.cmbKeepLogNumVar = StringVar(value='100')
         self.cmbKeepLogNum = Combobox(self.frmLog, state='readonly', text='100', textvariable=self.cmbKeepLogNumVar, values=self.cmbKeepLogNumList, font=('宋体',9))
-        self.cmbKeepLogNum.place(relx=0.244, rely=0.9, relwidth=0.269)
+        self.cmbKeepLogNum.place(relx=0.244, rely=0.875, relwidth=0.269)
 
         self.style.configure('TcmdSaveLog.TButton', font=('宋体',9))
         self.cmdSaveLog = Button(self.frmLog, text='保存', command=self.cmdSaveLog_Cmd, style='TcmdSaveLog.TButton')
-        self.cmdSaveLog.place(relx=0.576, rely=0.9, relwidth=0.18, relheight=0.061)
+        self.cmdSaveLog.place(relx=0.576, rely=0.875, relwidth=0.18, relheight=0.075)
 
         self.scrVLog = Scrollbar(self.frmLog, orient='vertical')
-        self.scrVLog.place(relx=0.909, rely=0.049, relwidth=0.047, relheight=0.684)
+        self.scrVLog.place(relx=0.909, rely=0.06, relwidth=0.047, relheight=0.728)
 
         self.style.configure('TcmdClearLog.TButton', font=('宋体',9))
         self.cmdClearLog = Button(self.frmLog, text='清空', command=self.cmdClearLog_Cmd, style='TcmdClearLog.TButton')
-        self.cmdClearLog.place(relx=0.776, rely=0.9, relwidth=0.18, relheight=0.061)
+        self.cmdClearLog.place(relx=0.776, rely=0.875, relwidth=0.18, relheight=0.075)
 
         self.lstLogVar = StringVar(value='')
         self.lstLogFont = Font(font=('宋体',12))
         self.lstLog = Listbox(self.frmLog, listvariable=self.lstLogVar, yscrollcommand=self.scrVLog.set, font=self.lstLogFont)
-        self.lstLog.place(relx=0.044, rely=0.049, relwidth=0.867, relheight=0.693)
+        self.lstLog.place(relx=0.044, rely=0.06, relwidth=0.867, relheight=0.74)
         self.scrVLog['command'] = self.lstLog.yview
-
-        self.style.configure('TlneUp.TSeparator', background='#C0C0C0')
-        self.lneUp = Separator(self.frmLog, orient='horizontal', style='TlneUp.TSeparator')
-        self.lneUp.place(relx=0.044, rely=0.851, relwidth=0.886, relheight=0.003)
-
-        self.style.configure('TlneDown.TSeparator', background='#FFFFC0')
-        self.lneDown = Separator(self.frmLog, orient='horizontal', style='TlneDown.TSeparator')
-        self.lneDown.place(relx=0.044, rely=0.851, relwidth=0.886, relheight=0.0091)
 
         self.style.configure('TlblKeepLogNum.TLabel', anchor='w', font=('宋体',9))
         self.lblKeepLogNum = Label(self.frmLog, text='保留条目', style='TlblKeepLogNum.TLabel')
-        self.lblKeepLogNum.place(relx=0.044, rely=0.9, relwidth=0.158, relheight=0.052)
-
-        self.style.configure('TlblTimeToFinish.TLabel', anchor='w', font=('宋体',9))
-        self.lblTimeToFinish = Label(self.frmLog, text='预计剩余时间：00:00:00', style='TlblTimeToFinish.TLabel')
-        self.lblTimeToFinish.place(relx=0.51, rely=0.778, relwidth=0.446, relheight=0.052)
-
-        self.style.configure('TlblQueueCmdNum.TLabel', anchor='w', font=('宋体',9))
-        self.lblQueueCmdNum = Label(self.frmLog, text='剩余命令：0', style='TlblQueueCmdNum.TLabel')
-        self.lblQueueCmdNum.place(relx=0.044, rely=0.778, relwidth=0.38, relheight=0.052)
+        self.lblKeepLogNum.place(relx=0.044, rely=0.875, relwidth=0.158, relheight=0.064)
 
         self.style.configure('TcmdCloseSerial.TButton', font=('宋体',9))
         self.cmdCloseSerial = Button(self.frmSerial, text='关闭', state='disabled', command=self.cmdCloseSerial_Cmd, style='TcmdCloseSerial.TButton')
@@ -441,6 +482,14 @@ class Application_ui(Frame):
         self.lblPortNo = Label(self.frmSerial, text='端口号', style='TlblPortNo.TLabel')
         self.lblPortNo.place(relx=0.044, rely=0.18, relwidth=0.158, relheight=0.191)
 
+        self.style.configure('TlblTimeToFinish.TLabel', anchor='w', font=('宋体',9))
+        self.lblTimeToFinish = Label(self.frmStatus, text='预计剩余时间：00:00:00', style='TlblTimeToFinish.TLabel')
+        self.lblTimeToFinish.place(relx=0.488, rely=0.281, relwidth=0.446, relheight=0.439)
+
+        self.style.configure('TlblQueueCmdNum.TLabel', anchor='w', font=('宋体',9))
+        self.lblQueueCmdNum = Label(self.frmStatus, text='剩余命令：0', style='TlblQueueCmdNum.TLabel')
+        self.lblQueueCmdNum.place(relx=0.066, rely=0.281, relwidth=0.38, relheight=0.439)
+
 class Application(Application_ui):
     #这个类实现具体的事件处理回调函数。界面生成代码在Application_ui中。
     def __init__(self, master=None):
@@ -453,7 +502,8 @@ class Application(Application_ui):
         self.cmbKeepLogNumVar.set('500')
         self.shiftX = self.shiftY = 0.0 #用于平移整个图案
         self.allowedMinX = self.allowedMinY = 3000.0 #如果存在小于此值的坐标，则全部坐标加上此值
-        self.getConfigFromFile()
+        self.cnc = CncMachine(self)
+        self.RestoreConfig()
         self.txtSourceFile.focus_set()
         self.simulator = None
         self.ser = None
@@ -474,7 +524,7 @@ class Application(Application_ui):
             if ret:
                 self.shiftX = self.shiftY = 0.0
         
-    def getConfigFromFile(self):
+    def RestoreConfig(self):
         config = configparser.SafeConfigParser()
         cfgFilename = os.path.join(os.path.dirname(__file__), CFG_FILE)
         config.read(cfgFilename)
@@ -488,23 +538,11 @@ class Application(Application_ui):
         self.cmbTimeOutVar.set(timeout)
         
         try:
-            self.txtXSpeedVar.set(config.get('Main', 'XAxisSpeed'))
+            self.chkForceHoleVar.set(1 if config.getboolean('Main', 'ForceHole') else 0)
         except:
             pass
         try:
-            self.txtYSpeedVar.set(config.get('Main', 'YAxisSpeed'))
-        except:
-            pass
-        try:
-            self.txtZSpeedVar.set(config.get('Main', 'ZAxisSpeed'))
-        except:
-            pass
-        try:
-            self.txtZLiftStepsVar.set(config.get('Main', 'ZLiftSteps'))
-        except:
-            pass
-        try:
-            self.txtPenWidthVar.set(config.get('Main', 'PenDiameter'))
+            self.txtMinHoleVar.set(config.get('Main', 'MinimumHole'))
         except:
             pass
         try:
@@ -528,32 +566,37 @@ class Application(Application_ui):
         except:
             pass
         try:
+            self.chkOmitRegionCmdVar.set(1 if config.getboolean('Main', 'OmitRegionCmd') else 0)
+        except:
+            pass
+        try:
             self.simulatorWidth = config.get('Simulator', 'Width')
         except:
             self.simulatorWidth = '200'
-            
+        
+        self.cnc.RestoreConfig(config)
+        
         if self.allowedMinX < 0.0:
             self.allowedMinX = 0.0
         if self.allowedMinY < 0.0:
             self.allowedMinY = 0.0
         
-    def saveConfigToFile(self):
+    def saveConfig(self):
         cfgFilename = os.path.join(os.path.dirname(__file__), CFG_FILE)
         config = configparser.SafeConfigParser()
         config.add_section('Main')
         config.add_section('Simulator')
         config.set('Main', 'SerialTimeout', self.cmbTimeOutVar.get())
-        config.set('Main', 'XAxisSpeed', self.txtXSpeedVar.get())
-        config.set('Main', 'YAxisSpeed', self.txtYSpeedVar.get())
-        config.set('Main', 'ZAxisSpeed', self.txtZSpeedVar.get())
-        config.set('Main', 'ZLiftSteps', self.txtZLiftStepsVar.get())
-        config.set('Main', 'PenDiameter', self.txtPenWidthVar.get())
+        config.set('Main', 'ForceHole', str(self.chkForceHoleVar.get()))
+        config.set('Main', 'MinimumHole', self.txtMinHoleVar.get())
         config.set('Main', 'KeepLogNum', self.cmbKeepLogNumVar.get())
         config.set('Main', 'MinimumX', '%.1f' % self.allowedMinX)
         config.set('Main', 'MinimumY', '%.1f' % self.allowedMinY)
         config.set('Main', 'ShiftX', '%.1f' % self.shiftX)
         config.set('Main', 'ShiftY', '%.1f' % self.shiftY)
+        config.set('Main', 'OmitRegionCmd', str(self.chkOmitRegionCmdVar.get()))
         config.set('Simulator', 'Width', self.simulatorWidth)
+        self.cnc.SaveConfig(config)
         
         try:
             with open(cfgFilename, 'w') as configFile:
@@ -563,7 +606,7 @@ class Application(Application_ui):
             
     #安全清理现场，优雅退出：在窗口关闭前先保证线程退出
     def EV_WM_DELETE_WINDOW(self, event=None):
-        self.saveConfigToFile()
+        self.saveConfig()
         self.evExit.set()
         self.evStop.set()
         self.cmdQueue.put_nowait('') #让队列醒来，以便线程优雅的自己退出
@@ -627,10 +670,10 @@ class Application(Application_ui):
             zLiftSteps = 0
         
         if not (0 < zLiftSteps <= 255):
-            showinfo('出错啦', 'Z轴步进设置有误，要求为1-255的正整数')
+            showinfo('出错啦', 'Z轴步进设置有误，要求为1-255的正整数。')
             return
             
-        self.SendCommand(('@z+%04d' % zLiftSteps).encode())
+        self.SendCommand('z+%05d' % zLiftSteps)
         
     def cmdZUp_Cmd(self, event=None):
         try:
@@ -639,28 +682,32 @@ class Application(Application_ui):
             zLiftSteps = 0
         
         if not (0 < zLiftSteps <= 255):
-            showinfo('出错啦', 'Z轴步进设置有误，要求为1-255的正整数')
+            showinfo('出错啦', 'Z轴步进设置有误，要求为1-255的正整数。')
             return
             
-        self.SendCommand(('@z-%04d' % zLiftSteps).encode())
+        self.SendCommand('z-%05d' % zLiftSteps)
     
     def cmdZMicroUp_Cmd(self, event=None):
-        self.SendCommand(b'@z-0020')
+        self.SendCommand('z-00020')
     
     def cmdZMicroDown_Cmd(self, event=None):
-        self.SendCommand(b'@z+0020')
+        self.SendCommand('z+00020')
     
     def cmdXRight_Cmd(self, event=None):
-        self.SendCommand(b'@x+1886')
+        xStepsPerCm = self.txtXStepsPerCmVar.get()
+        self.SendCommand('x+' + xStepsPerCm.zfill(5))
 
     def cmdXLeft_Cmd(self, event=None):
-        self.SendCommand(b'@x-1886')
+        xStepsPerCm = self.txtXStepsPerCmVar.get()
+        self.SendCommand('x-' + xStepsPerCm.zfill(5))
 
     def cmdYDown_Cmd(self, event=None):
-        self.SendCommand(b'@y+1886')
+        yStepsPerCm = self.txtYStepsPerCmVar.get()
+        self.SendCommand('y+' + yStepsPerCm.zfill(5))
 
     def cmdYUp_Cmd(self, event=None):
-        self.SendCommand(b'@y-1886')
+        yStepsPerCm = self.txtYStepsPerCmVar.get()
+        self.SendCommand('y-' + yStepsPerCm.zfill(5))
     
     #打开串口
     def cmdOpenSerial_Cmd(self, event=None):
@@ -693,7 +740,10 @@ class Application(Application_ui):
     def cmdSendCommand_Cmd(self, event=None):
         cmd = self.txtManualCommandVar.get()
         if cmd:
-            self.SendCommand(cmd.encode())
+            if cmd.startswith('$'): #调试命令，需要上位机解析和转换
+                cmd = cmd[1:]
+                
+            self.SendCommand(cmd)
         
     def cmdClearLog_Cmd(self, event=None):
         self.lstLog.delete(0, END)
@@ -704,17 +754,23 @@ class Application(Application_ui):
             self.saveLogToFile(sf)
     
     def cmdResetX_Cmd(self, event=None):
-        self.SendCommand(b'@reposx')
-
+        self.cnc.Reset(x=True)
+        if self.hasSimulator():
+            self.simulator.Reset(x=True)
+    
     def cmdResetY_Cmd(self, event=None):
-        self.SendCommand(b'@reposy')
-
+        self.cnc.Reset(y=True)
+        if self.hasSimulator():
+            self.simulator.Reset(y=True)
+    
     def cmdResetZ_Cmd(self, event=None):
-        self.SendCommand(b'@reposz')
+        self.cnc.Reset(z=True)
+        if self.hasSimulator():
+            self.simulator.Reset(z=True)
     
     def cmdResetXYZ_Cmd(self, event=None):
         if not self.ser and not self.hasSimulator():
-            showinfo('注意啦', '请先打开串口或模拟器然后再执行命令')
+            showinfo('注意啦', '请先打开串口或模拟器然后再执行命令。')
             return False
             
         self.cmdResetX_Cmd()
@@ -724,31 +780,37 @@ class Application(Application_ui):
     #设置控制板的XYZ轴运动速度，值越小运动越快，注意速度太快则扭矩下降，并有可能啸叫和丢步
     def cmdApplyAxisSpeed_Cmd(self, event=None):
         if not self.ser and not self.hasSimulator():
-            showinfo('注意啦', '请先打开串口或模拟器然后再执行命令')
+            showinfo('注意啦', '请先打开串口或模拟器然后再执行命令。')
             return False
             
         xSpeed = self.txtXSpeedVar.get()
+        xMaxSpeed = self.txtXMaxSpeedVar.get()
         ySpeed = self.txtYSpeedVar.get()
+        yMaxSpeed = self.txtYMaxSpeedVar.get()
         zSpeed = self.txtZSpeedVar.get()
-        zLiftSteps = self.txtZLiftStepsVar.get()
+        speedAcceleration = self.txtAccelerationVar.get()
         try:
             xSpeed = int(xSpeed)
+            xMaxSpeed = int(xMaxSpeed)
             ySpeed = int(ySpeed)
+            yMaxSpeed = int(yMaxSpeed)
             zSpeed = int(zSpeed)
-            zLiftSteps = int(zLiftSteps)
+            speedAcceleration = int(speedAcceleration)
         except Exception as e:
             showinfo('出错啦', str(e))
             return
         
-        if not (0 < zLiftSteps <= 255):
-            showinfo('出错啦', 'Z轴步进要求为1-255的正整数')
-            self.txtZLiftSteps.focus_set()
+        if ((not (0 < xSpeed < 1000)) or (not (0 < xMaxSpeed < 1000)) or (not (0 < ySpeed < 1000))
+            or (not (0 < yMaxSpeed < 1000)) or (not (0 < zSpeed < 1000)) or (not (0 < speedAcceleration < 10000))):
+            showinfo('注意啦', '部分参数设置错误，需要为小于999的正整数。')
             return
-        
-        self.SendCommand(('@X%04d' % xSpeed).encode())
-        self.SendCommand(('@Y%04d' % ySpeed).encode())
-        self.SendCommand(('@Z%04d' % zSpeed).encode())
-        self.SendCommand(('@ZL%03d' % zLiftSteps).encode())
+            
+        self.SendCommand('XS%03d' % xSpeed)
+        self.SendCommand('XE%03d' % xMaxSpeed)
+        self.SendCommand('YS%03d' % ySpeed)
+        self.SendCommand('YE%03d' % yMaxSpeed)
+        self.SendCommand('Z%03d' % zSpeed)
+        self.SendCommand('A%04d' % speedAcceleration)
     
     #分析文件，获取最小值和最大值
     def cmdUpdateMinMax_Cmd(self, event=None):
@@ -780,8 +842,10 @@ class Application(Application_ui):
         except:
             showinfo('出错啦', '请先更新文件信息。')
             return
-        
-        self.SendCommand(('x%06dy%06dz2' % (x, y)).encode())
+            
+        self.cnc.UpdateProperties()
+        for cmd in self.cnc.TranslateCmd('x%06dy%06dz2' % (x, y)):
+            self.SendCommand(cmd)
         
     #移动至右上角，用于确定打印区域
     def cmdMoveToRightUp_Cmd(self, event=None):
@@ -792,8 +856,10 @@ class Application(Application_ui):
             showinfo('出错啦', '请先更新文件信息。')
             return
         
-        self.SendCommand(('x%06dy%06dz2' % (x, y)).encode())
-    
+        self.cnc.UpdateProperties()
+        for cmd in self.cnc.TranslateCmd('x%06dy%06dz2' % (x, y)):
+            self.SendCommand(cmd)
+        
     #移动至左下角，用于确定打印区域
     def cmdMoveToLeftBottom_Cmd(self, event=None):
         try:
@@ -803,7 +869,9 @@ class Application(Application_ui):
             showinfo('出错啦', '请先更新文件信息。')
             return
         
-        self.SendCommand(('x%06dy%06dz2' % (x, y)).encode())
+        self.cnc.UpdateProperties()
+        for cmd in self.cnc.TranslateCmd('x%06dy%06dz2' % (x, y)):
+            self.SendCommand(cmd)
     
     #移动至右上角，用于确定打印区域
     def cmdMoveToRightBottom_Cmd(self, event=None):
@@ -814,10 +882,20 @@ class Application(Application_ui):
             showinfo('出错啦', '请先更新文件信息。')
             return
         
-        self.SendCommand(('x%06dy%06dz2' % (x, y)).encode())
+        self.cnc.UpdateProperties()
+        for cmd in self.cnc.TranslateCmd('x%06dy%06dz2' % (x, y)):
+            self.SendCommand(cmd)
     
     #将命令压到队列中以供另一个线程取用，出错返回False
     def SendCommand(self, cmd, penWidth=None):
+        if not cmd:
+            return True
+        
+        try:
+            cmd = cmd.encode()
+        except:
+            pass
+            
         self.evStop.clear()
         self.evPause.clear()
         try:
@@ -826,19 +904,20 @@ class Application(Application_ui):
             if self.ser:
                 self.cmdQueue.put(cmd, block=True)
             else:
-                showinfo('注意啦', '请先打开串口然后再执行命令')
+                showinfo('注意啦', '请先打开串口然后再执行命令。')
                 return False
-        else:
-            response = self.simulator.putDrawCmd(cmd, penWidth)
-            self.AddCommandLog(cmd + b' -> sim')
-            self.lstLog.update_idletasks()
-            if response != b'*':
-                if not askyesno('命令出错', '模拟器返回命令出错标识，是否继续下发其他命令？'):
-                    return False
-        
+        else: #有模拟器
+            if cmd != END_CMD:
+                response = self.simulator.putDrawCmd(cmd, penWidth)
+                self.AddCommandLog(cmd + b' -> sim')
+                self.lstLog.update_idletasks()
+                if response != b'*':
+                    if not askyesno('命令出错', '模拟器返回命令出错标识，是否继续下发其他命令？'):
+                        return False
+            
         return True
         
-    def AddCommandLog(self, cmd, isResponse=False):
+    def AddCommandLog(self, cmd, isResponse=False, forceUpdateNum=0):
         if isResponse:
             self.lstLog.insert(END, b'                           ' + cmd)
         else:
@@ -857,10 +936,13 @@ class Application(Application_ui):
         if logNum > keepNum + tolerance:
             self.lstLog.delete(0, tolerance * 2)
         
-        #ListBox界面刷新效率比较低，为效率考虑，每隔3行刷新一次
-        if logNum % 3 == 0:
+        #ListBox界面刷新效率比较低，为效率考虑，每隔一定的行数再刷新一次
+        if forceUpdateNum > 0:
+            if logNum % forceUpdateNum == 0:
+                self.lstLog.see(END)
+                #self.lstLog.update_idletasks()
+        else: #马上刷新
             self.lstLog.see(END)
-            #self.lstLog.update_idletasks()
         
     #将命令和控制板的答复记录保存到文本文件
     def saveLogToFile(self, filename):
@@ -891,6 +973,14 @@ class Application(Application_ui):
         #先读取gerber文件头的一些内嵌信息
         gerberInfo = {'xInteger':2,'xDecimal':5,'yInteger':2,'yDecimal':5,
             'zeroSuppress':'L', 'unit':'inch', 'apertures':{}, }
+        
+        forceHole = bool(self.chkForceHoleVar.get())
+        try: #获取用户要求的最小孔径(mm)
+            minHole = float(self.txtMinHoleVar.get())
+        except:
+            self.txtMinHoleVar.set('0.8')
+            minHole = 0.8
+        
         for line in lines[:50]: #在前面50行获取元信息，一般足够了
             if line.startswith('G04'): #注释行
                 continue
@@ -913,7 +1003,7 @@ class Application(Application_ui):
                 gerberInfo['unit'] = 'mm'
             
             #Aperture定义
-            apt = Aperture.GenAperture(line, gerberInfo['unit'])
+            apt = Aperture.GenAperture(line, gerberInfo['unit'], forceHole, minHole)
             if apt:
                 gerberInfo['apertures'][apt.name] = apt
         
@@ -950,16 +1040,22 @@ class Application(Application_ui):
             penWidth = float(self.txtPenWidthVar.get()) * 1000.0
         except:
             penWidth = 1000.0 #默认1毫米
-        if penWidth < 100: #太小没意思，默认最小为0.1mm
+        if penWidth < 100: #假定笔不会太小，默认最小为0.1mm
             penWidth = 100
         
         #开始逐行处理文件
         grblApt = re.compile(r'^.*?D(\d+?)\*') #aperture切换行
         x = y = prevX = prevY = 0.0
+        regionModeOn = False
         curAperture = defAperture = Aperture() #新建一个默认大小的Aperture
         lines = gerber['lines']
         
-        self.cmdApplyAxisSpeed_Cmd() #更新控制板的各轴速度和Z轴步进
+        self.cnc.UpdateProperties() #将界面参数更新到cnc属性
+        self.cmdApplyAxisSpeed_Cmd() #更新控制板的各轴速度
+        self.cnc.Reset(x=True, y=True) #设定当前点为原点
+        if self.hasSimulator(): #模拟器使用
+            self.simulator.Reset(x=True, y=True)
+            self.simulator.UpdateProperties()
         
         for lineNo, line in enumerate(lines, 1):
             if self.evExit.is_set():
@@ -972,6 +1068,11 @@ class Application(Application_ui):
                 #返回一个元组列表[(x1,y1,z1),(x2,y2,z2),...]
                 if z == '2': #直接移动绘图笔的命令
                     lines2draw = [(x, y, z)]
+                elif regionModeOn:
+                    if self.chkOmitRegionCmdVar.get():
+                        continue #如果设置忽略区域命令，则区域模式打开后跳过所有中间的绘图命令
+                    else: #区域模式打开后线条宽度为0
+                        lines2draw = defAperture.Render(prevX, prevY, x, y, z, penWidth)
                 elif curAperture:
                     lines2draw = curAperture.Render(prevX, prevY, x, y, z, penWidth)
                 else:
@@ -983,14 +1084,16 @@ class Application(Application_ui):
                     if (z == '1') and (x != prevX) and (y != prevY):
                         for point in self.SplitInclined(prevX, prevY, x, y):
                             out = 'x%06.0fy%06.0fz%s' % (point[0], point[1], z)
-                            ret = self.SendCommand(out.encode(), penWidth)
-                            if not ret:
-                                return
+                            for cmd in self.cnc.TranslateCmd(out):
+                                ret = self.SendCommand(cmd, penWidth)
+                                if not ret:
+                                    return
                     else:
                         out = 'x%06.0fy%06.0fz%s' % (x, y, z)
-                        ret = self.SendCommand(out.encode(), penWidth)
-                        if not ret:
-                            return
+                        for cmd in self.cnc.TranslateCmd(out):
+                            ret = self.SendCommand(cmd, penWidth)
+                            if not ret:
+                                return
                     
                     prevX = x
                     prevY = y
@@ -1000,12 +1103,12 @@ class Application(Application_ui):
                     try:
                         aptNum = int(mat.group(1))
                     except:
-                        showinfo('出错啦', '解读文件时出现aperture编号出错的情况 [第 %d 行]' % lineNo)
+                        showinfo('出错啦', '解读文件时出现aperture编号出错的情况 [第 %d 行]！' % lineNo)
                         return
                     
                     if aptNum == 3: #在当前点绘aperture命令
                         if not curAperture:
-                            showinfo('出错啦', '没有设置aperture就开始绘图！ [第 %d 行]' % lineNo)
+                            showinfo('出错啦', '没有设置aperture就开始绘图！ [第 %d 行]！' % lineNo)
                             continue #忽略好了，不用退出
                         
                         lines2draw = curAperture.Render(prevX, prevY, prevX, prevY, '3', penWidth)
@@ -1014,28 +1117,34 @@ class Application(Application_ui):
                             if (z == '1') and (x != prevX) and (y != prevY):
                                 for point in self.SplitInclined(prevX, prevY, x, y):
                                     out = 'x%06.0fy%06.0fz%s' % (point[0], point[1], z)
-                                    ret = self.SendCommand(out.encode(), penWidth)
-                                    if not ret:
-                                        return
+                                    for cmd in self.cnc.TranslateCmd(out):
+                                        ret = self.SendCommand(cmd, penWidth)
+                                        if not ret:
+                                            return
                             else:
                                 out = 'x%06.0fy%06.0fz%s' % (x, y, z)
-                                ret = self.SendCommand(out.encode(), penWidth)
-                                if not ret:
-                                    return
+                                for cmd in self.cnc.TranslateCmd(out):
+                                    ret = self.SendCommand(cmd, penWidth)
+                                    if not ret:
+                                        return
                             prevX = x
                             prevY = y
                         
                     elif aptNum >= 10: #切换当前的aperture    
                         aptName = 'D%d' % aptNum
                         curAperture = gerber['header']['apertures'].get(aptName, defAperture)
+                elif 'G36*' in line: #区域模式开始
+                    regionModeOn = True
+                elif 'G37*' in line: #区域模式关闭
+                    regionModeOn = False
         
-                
-        self.SendCommand(b'x000000y000000z2', penWidth) #归位
+        #归位
+        for cmd in self.cnc.TranslateCmd('x000000y000000z2'):
+            self.SendCommand(cmd, penWidth)
         
-        #完成后尝试发声提醒
-        SoundNotify(False)
+        #用于最后响铃提醒用
+        self.SendCommand(END_CMD, None)
         
-    
     #将RS274X坐标字符串格式的xy转换成浮点型（单位为微米），支持正负数，返回转换后的(x,y)元组
     def XY2Float(self, x, y, gerberInfo):
         xIsNegative = False
@@ -1085,6 +1194,7 @@ class Application(Application_ui):
         for line in lines:
             line = line.strip()
             if line.startswith('G04'): #注释行
+                linesNum.append(line)
                 continue
                 
             mat = grblExp.match(line)
@@ -1155,6 +1265,7 @@ class Application(Application_ui):
         timeToFinish = timeForLast100 = avgForLast100 = sumedCmdNum = 0
         cmdStartTime = cmdEndTime = None
         remainedCmd = 0
+        forceUpdateNum = 10
         
         while (True):
             if evExit.is_set():
@@ -1173,7 +1284,15 @@ class Application(Application_ui):
             
             remainedCmd = self.cmdQueue.qsize()
             self.lblQueueCmdNum['text'] = '剩余命令：%d' % remainedCmd
-            
+            if remainedCmd > 500:
+                forceUpdateNum = 20
+            elif remainedCmd > 50:
+                forceUpdateNum = 5
+            elif remainedCmd > 10:
+                forceUpdateNum = 2
+            else:
+                forceUpdateNum = 0
+                
             if not cmd:
                 time.sleep(0.1) #出错了或队列空，睡0.1s先
                 continue
@@ -1183,13 +1302,17 @@ class Application(Application_ui):
                 self.lblTimeToFinish['text'] = '预计剩余时间：00:00:00'
                 continue
             
+            if cmd == END_CMD:
+                SoundNotify(False)
+                continue
+                
             cmdStartTime = datetime.datetime.now()
             try:
                 self.ser.write(cmd)
             except Exception as e:
-                self.AddCommandLog(('Err Write: %s' % cmd).encode())
+                self.AddCommandLog(('Err Write: %s' % cmd).encode(), forceUpdateNum=0)
                 
-            self.AddCommandLog(cmd)
+            self.AddCommandLog(cmd, forceUpdateNum=forceUpdateNum)
             
             cnt = 0
             while (cnt < self.serTimeoutCnt):
@@ -1213,14 +1336,14 @@ class Application(Application_ui):
                 continue
                 
             if response:
-                self.AddCommandLog(response, True)
+                self.AddCommandLog(response, True, forceUpdateNum=forceUpdateNum)
                 if response == b'#':
                     ignore = askyesno('命令错', '控制板返回命令执行出错标识，是否继续下发其他命令？')
                     if not ignore:
                         evStop.set()
                     
             else:
-                self.AddCommandLog(b'Timeout', True)
+                self.AddCommandLog(b'Timeout', True, forceUpdateNum=0)
                 SoundNotify()
                 ignore = askyesno('答复超时', '控制板未响应，是否继续下发其他命令？')
                 if not ignore:
@@ -1273,6 +1396,16 @@ class Application(Application_ui):
         if not hasSim:
             self.simulator = CncSimulator.Application(Toplevel())
             self.simulator.setSimulatorWidth(self.simulatorWidth)
+            #懒了，直接跨类写属性
+            try:
+                self.simulator.xBacklash = int(self.txtXBacklashVar.get())
+                self.simulator.yBacklash = int(self.txtYBacklashVar.get())
+                self.simulator.xStepsPerCm = int(self.txtXStepsPerCmVar.get())
+                self.simulator.yStepsPerCm = int(self.txtYStepsPerCmVar.get())
+            except:
+                showinfo('出错啦', '控制板参数配置错误，请确认回差值等参数是否配置正确。')
+                return False
+                
             self.simulator.mainloop()
         
         return True
@@ -1284,7 +1417,185 @@ class Application(Application_ui):
         except:
             return False
         else:
+            self.simulatorWidth = self.simulator.simulatorWidth() #取巧的数据同步而已
             return True
+            
+#一个CNC对象类，将控制板的部分功能转移到上位机中实现，包括单位转换和软件回差处理
+class CncMachine:
+    def __init__(self, app):
+        self.app = app
+        self.xPrevPos = 0
+        self.yPrevPos = 0
+        self.zPrevPos = '1' # 1:下降， 2: 上升
+        self.xBacklash = 0
+        self.yBacklash = 0
+        self.xPrevMoveLeft = True
+        self.yPrevMoveUp = True
+        self.xStepsPerCm = 0
+        self.yStepsPerCm = 0
+        self.zLiftSteps = 0
+    
+    #从配置文件中恢复配置
+    def RestoreConfig(self, config):
+        app = self.app
+        try:
+            app.txtXSpeedVar.set(config.get('Machine', 'XAxisSpeed'))
+        except:
+            pass
+        try:
+            app.txtXMaxSpeedVar.set(config.get('Machine', 'XAxisMaxSpeed'))
+        except:
+            pass
+        try:
+            app.txtYSpeedVar.set(config.get('Machine', 'YAxisSpeed'))
+        except:
+            pass
+        try:
+            app.txtYMaxSpeedVar.set(config.get('Machine', 'YAxisMaxSpeed'))
+        except:
+            pass
+        try:
+            app.txtZSpeedVar.set(config.get('Machine', 'ZAxisSpeed'))
+        except:
+            pass
+        try:
+            app.txtAccelerationVar.set(config.get('Machine', 'SpeedAcceleration'))
+        except:
+            pass
+        try:
+            app.txtXStepsPerCmVar.set(config.get('Machine', 'XStepsPerCm'))
+        except:
+            pass
+        try:
+            app.txtXBacklashVar.set(config.get('Machine', 'XBacklash'))
+        except:
+            pass
+        try:
+            app.txtYStepsPerCmVar.set(config.get('Machine', 'YStepsPerCm'))
+        except:
+            pass
+        try:
+            app.txtYBacklashVar.set(config.get('Machine', 'YBacklash'))
+        except:
+            pass
+        try:
+            app.txtZLiftStepsVar.set(config.get('Main', 'ZLiftSteps'))
+        except:
+            pass
+        try:
+            app.txtPenWidthVar.set(config.get('Main', 'PenDiameter'))
+        except:
+            pass
+            
+    #将配置保存到配置文件
+    def SaveConfig(self, config):
+        app = self.app
+        config.add_section('Machine')
+        config.set('Machine', 'XAxisSpeed', app.txtXSpeedVar.get())
+        config.set('Machine', 'XAxisMaxSpeed', app.txtXMaxSpeedVar.get())
+        config.set('Machine', 'YAxisSpeed', app.txtYSpeedVar.get())
+        config.set('Machine', 'YAxisMaxSpeed', app.txtYMaxSpeedVar.get())
+        config.set('Machine', 'ZAxisSpeed', app.txtZSpeedVar.get())
+        config.set('Machine', 'SpeedAcceleration', app.txtAccelerationVar.get())
+        config.set('Machine', 'XStepsPerCm', app.txtXStepsPerCmVar.get())
+        config.set('Machine', 'XBacklash', app.txtXBacklashVar.get())
+        config.set('Machine', 'YStepsPerCm', app.txtYStepsPerCmVar.get())
+        config.set('Machine', 'YBacklash', app.txtYBacklashVar.get())
+        config.set('Machine', 'ZLiftSteps', app.txtZLiftStepsVar.get())
+        config.set('Machine', 'PenDiameter', app.txtPenWidthVar.get())
+    
+    #将当前位置当做原点
+    def Reset(self, x=False, y=False, z=False):
+        if x:
+            self.xPrevPos = 0
+        if y:
+            self.yPrevPos = 0
+        if z:
+            self.zPrevPos = '1'
+    
+    #将GUI界面上的参数更新到对象属性中，方便后续处理
+    def UpdateProperties(self):
+        app = self.app
+        try:
+            self.xBacklash = int(app.txtXBacklashVar.get())
+            self.yBacklash = int(app.txtYBacklashVar.get())
+            self.xStepsPerCm = int(app.txtXStepsPerCmVar.get())
+            self.yStepsPerCm = int(app.txtYStepsPerCmVar.get())
+            self.zLiftSteps = int(app.txtZLiftStepsVar.get())
+        except:
+            return False
+        else:
+            return True
+    
+    #返回Z抬起的命令
+    def LiftZCmd(self):
+        if self.zPrevPos == '1':
+            self.zPrevPos = '2'
+            return 'z-%05d' % self.zLiftSteps
+        else:
+            return ''
+    
+    def DownZCmd(self):
+        if self.zPrevPos == '2':
+            self.zPrevPos = '1'
+            return 'z+%05d' % self.zLiftSteps
+        else:
+            return ''
+        
+    #将主应用程序生成的绝对微米坐标转换为雕刻机认识的按步进运行的命令
+    #cmd为bytes或str，返回是一个命令列表
+    def TranslateCmd(self, cmd):
+        #命令格式 x000000y000000z1 or x000000y000000z2
+        if type(cmd) is bytes:
+            cmd = cmd.decode()
+        
+        #print(cmd)
+        
+        res = []
+        x = int(cmd[1:7]) #单位为微米
+        y = int(cmd[8:14])
+        z = cmd[15]
+        if z == '1' and self.zPrevPos == '2':
+            res.append(self.DownZCmd())
+        elif z == '2' and self.zPrevPos == '1':
+            res.append(self.LiftZCmd())
+        
+        if x != self.xPrevPos:
+            #微米转换为步数
+            steps = round(abs(x - self.xPrevPos) * self.xStepsPerCm / 10000)
+            if x < self.xPrevPos: #左移
+                #消回差
+                if not self.xPrevMoveLeft: #前一个动作为右移，现在左移，需要做回差补偿
+                    steps += self.xBacklash
+                if steps > 0:
+                    res.append('x-%05d' % steps)
+                self.xPrevMoveLeft = True
+            else:
+                if self.xPrevMoveLeft: #前一个动作为左移，现在右移，需要做回差补偿
+                    steps += self.xBacklash
+                if steps > 0:
+                    res.append('x+%05d' % steps)
+                self.xPrevMoveLeft = False
+            self.xPrevPos = x
+        
+        if y != self.yPrevPos:
+            #微米转换为步数
+            steps = round(abs(y - self.yPrevPos) * self.yStepsPerCm / 10000)
+            if y < self.yPrevPos: #上移
+                if not self.yPrevMoveUp:
+                    steps += self.yBacklash
+                if steps > 0:
+                    res.append('y-%05d' % steps)
+                self.yPrevMoveUp = True
+            else:
+                if self.yPrevMoveUp:
+                    steps += self.yBacklash
+                if steps > 0:
+                    res.append('y+%05d' % steps)
+                self.yPrevMoveUp = False
+            self.yPrevPos = y
+            
+        return res
         
 #一个Gerber的Aperture定义，用于画粗线或焊盘等信息
 class Aperture:
@@ -1303,8 +1614,10 @@ class Aperture:
     
     #判断行是否是aperture定义，如果是，则返回一个aperture实例，否则返回none
     @classmethod
-    def GenAperture(cls, line, unit):
-        #Aperture定义
+    def GenAperture(cls, line, unit, forceHole, minHole):
+        minHole *= 1000 #转换为微米
+        
+        #Aperture定义的正则表达式
         mat = re.match(r'^%AD(D\d+?)([CROP]) *?, *?(.*?)\*%', line)
         if mat:
             inst = Aperture()
@@ -1329,9 +1642,9 @@ class Aperture:
             if type_ == 'C': #圆形 %ADD10C,.025*%  ｜ %ADD10C,0.5X0.25*%  ｜ %ADD10C,0.5X0.29X0.29*%
                 inst.type_ = cls.Circle
                 inst.outerEdge1 = mods[0]
-                if len(mods) > 2: #空心圆
+                if len(mods) > 2: #外圆内方
                     inst.innerEdge2 = mods[2]
-                if len(mods) > 1:
+                if len(mods) > 1: #开圆孔或方孔
                     inst.innerEdge1 = mods[1]
             elif type_ == 'R': #矩形 %ADD22R,0.044X0.025*%  %ADD22R,0.044X0.025X0.019*% %ADD22R,0.044X0.025X0.024X0.013*%
                 inst.type_ = cls.Rectangle
@@ -1368,9 +1681,15 @@ class Aperture:
                     inst.innerEdge1 = mods[3] #内孔直径或边长
                 if len(mods) > 2:
                     inst.angle = mods[2] #旋转角度
-                
+            
+            #强制开孔，仅针对没有孔的，或小圆孔的，如果本来是方孔则不管
+            if inst.innerEdge1 > 0.0 and inst.innerEdge2 == 0.0 and inst.innerEdge1 < minHole:
+                inst.innerEdge1 = minHole
+            if forceHole and inst.innerEdge1 == 0.0: #强制开孔
+                inst.innerEdge1 = minHole
+            
             return inst
-    
+            
     #根据当前的Aperture生成画线序列，因笔尖直径有限，所以粗线则需要画多次才行
     #返回一个元组列表[(x1,y1,z1),(x2,y2,z2),...]
     def Render(self, prevX, prevY, x, y, z, penWidth):
@@ -1744,6 +2063,8 @@ class Aperture:
         penHalf = penWidth / 2
         radius = self.outerEdge1 / 2 - penHalf
         innerRadius = self.innerEdge1 / 2 + penHalf
+        if innerRadius > radius:
+            innerRadius = radius
         radiusStep = penWidth * 2 / 3
         res = []
         pi2 = math.pi * 2
@@ -1762,8 +2083,13 @@ class Aperture:
                 prevY = currY
                 
             res.append((prevX, prevY, x - radius, y)) #封口
+            
+            if radius == innerRadius:
+                break
             radius -= radiusStep
-        
+            if radius < innerRadius:
+                radius = innerRadius
+            
         return res
         
     #在特定点上画一个矩形（可能为实心，或空心）
@@ -1809,7 +2135,7 @@ class Aperture:
                 yFill += fillStep
             r = self.innerEdge1 / 2 + penHalf
             while yFill < y + self.innerEdge1 / 2: #中间部分要分成左右两半
-                deltaX = math.sqrt(math.pow(r, 2) - math.pow(abs(y - yFill)))
+                deltaX = math.sqrt(math.pow(r, 2) - math.pow(abs(y - yFill), 2))
                 if left2right:
                     res.append((xEdgeLeft, yFill, x - deltaX, yFill))
                     res.append((x + deltaX, yFill, xEdgeRight, yFill))
@@ -1861,31 +2187,14 @@ class Aperture:
     #根据x,y,penWidth生成[(x1,y1,x2,y2),(x1',y1',x2',y2'),...]画线序列
     #x,y:要画矩形椭圆的坐标（微米）
     #penWidth：笔尖宽度（微米）
-    #不支持内部孔洞
     def RenderObround(self, x, y, penWidth):
         if self.outerEdge1 == self.outerEdge2:
             return self.RenderCircle(x, y, penWidth)
+        elif self.outerEdge1 > self.outerEdge2: #横的长条
+            return self.RenderObroundHorizontal(x, y, penWidth)
+        else: #竖的长条
+            return self.RenderObroundVertical(x, y, penWidth)
             
-        penHalf = penWidth / 2
-        fillStep = penWidth * 2 / 3
-        minEdge = min(self.outerEdge1, self.outerEdge2)
-        xLeft = x - self.outerEdge1 / 2
-        xRight = x + self.outerEdge1 / 2
-        yTop = y - self.outerEdge2 / 2
-        yBottom = y + self.outerEdge2 / 2
-        
-        #新建一个实例用于等效绘图
-        inst = Aperture()
-        inst.type_ = self.Circle
-        
-        #横的长条，等效为Aperture为圆时的一条短横线
-        if self.outerEdge1 > self.outerEdge2:
-            inst.outerEdge1 = self.outerEdge2
-            return inst.RenderLine(xLeft, y, xRight, y, self.outerEdge2, penWidth)
-        else: #竖的长条，等效为Aperture为圆时的一条短竖线
-            inst.outerEdge1 = self.outerEdge1
-            return inst.RenderLine(x, yTop, x, yBottom, self.outerEdge1, penWidth)
-    
     #在特定点上画一个多边形（可能为实心，或空心）
     #根据x,y,penWidth生成[(x1,y1,x2,y2),(x1',y1',x2',y2'),...]画线序列
     #x,y:要画多边形的坐标（微米）
@@ -1930,7 +2239,192 @@ class Aperture:
             res.append((tmpPrevX, tmpPrevY, firstX, firstY)) #封口
             radius -= radiusStep
         return res
+    
+    #在特定点上画一个水平的矩形椭圆（可能为实心，或空心）
+    #根据x,y,penWidth生成[(x1,y1,x2,y2),(x1',y1',x2',y2'),...]画线序列
+    #x,y:要画矩形椭圆的坐标（微米）
+    #penWidth：笔尖宽度（微米）
+    def RenderObroundHorizontal(self, x, y, penWidth):
+        penHalf = penWidth / 2
+        fillStep = penWidth * 2 / 3
+        radius = self.outerEdge2 / 2 - penHalf
+        xLeft = x - self.outerEdge1 / 2
+        xRight = x + self.outerEdge1 / 2
+        yTop = y - radius
+        yBottom = y + radius
+        alphaStep = ANGLE_PER_SIDE
+        alphaStart = 0.0 #定义垂直向上为0度，顺时针增加
         
+        #先画一个外框
+        res = [(xLeft, yTop, xRight, yTop),]
+        
+        #右半圆
+        tmpPrevX = xRight
+        tmpPrevY = yTop        
+        if radius <= penHalf: #半径太小了，则仅在端点点一个点即可
+            res.append((xRight, y, xRight, y))
+        else:
+            alpha = alphaStart
+            while alpha <= math.pi:
+                deltaX = radius * math.sin(alpha)
+                deltaY = radius * math.cos(alpha)
+                currX = xRight + deltaX
+                currY = y - deltaY
+                res.append((tmpPrevX, tmpPrevY, currX, currY))
+                tmpPrevX = currX
+                tmpPrevY = currY
+                alpha += alphaStep
+            res.append((tmpPrevX, tmpPrevY, xRight, yBottom)) #封口
+        
+        res.append((xRight, yBottom, xLeft, yBottom)) #第二根线
+        
+        #左半圆
+        if radius <= penHalf: #半径太小了，则仅在端点点一个点即可
+            res.append((xLeft, y, xLeft, y))
+        else:
+            tmpPrevX = xLeft
+            tmpPrevY = yBottom
+            while alpha <= math.pi * 2:
+                deltaX = radius * math.sin(alpha)
+                deltaY = radius * math.cos(alpha)
+                currX = xLeft + deltaX
+                currY = y - deltaY
+                res.append((tmpPrevX, tmpPrevY, currX, currY))
+                tmpPrevX = currX
+                tmpPrevY = currY
+                alpha += alphaStep
+            res.append((tmpPrevX, tmpPrevY, xLeft, yTop))
+        
+        if radius <= penHalf: #半径太小则无法填充内部
+            return res
+        
+        #填充
+        yFill = yTop + fillStep
+        while yFill < yBottom:
+            deltaY = y - yFill
+            cosDeltaY = deltaY / radius
+            alpha = math.acos(cosDeltaY if cosDeltaY > -1.0 else -1.0) #避免浮点计算误差
+            deltaX = radius * math.sin(alpha)
+            xFillLeft = xLeft - deltaX
+            xFillRight = xRight + deltaX
+            
+            if self.innerEdge1 == 0.0: #实心
+                res.append((xFillLeft, yFill, xFillRight, yFill))
+            elif self.innerEdge2 == 0.0: #圆孔
+                #上半部或下半部
+                if ((yFill < y - self.innerEdge1 / 2 - penHalf) 
+                    or (yFill > y + self.innerEdge1 / 2 + penHalf)):
+                    res.append((xFillLeft, yFill, xFillRight, yFill))
+                else: #中间分成左右两部分
+                    r = self.innerEdge1 / 2 + penHalf
+                    deltaX = math.sqrt(math.pow(r, 2) - math.pow(abs(y - yFill), 2))
+                    res.append((xFillLeft, yFill, x - deltaX, yFill))
+                    res.append((x + deltaX, yFill, xFillRight, yFill))                
+            else: #方孔
+                #上半部或下半部
+                if ((yFill < y - self.innerEdge2 / 2 - penHalf) 
+                    or (yFill > y + self.innerEdge2 / 2 + penHalf)):
+                    res.append((xFillLeft, yFill, xFillRight, yFill))
+                else: #中间分成左右两部分
+                    deltaX = self.innerEdge1 / 2 + penHalf
+                    res.append((xFillLeft, yFill, x - deltaX, yFill))
+                    res.append((x + deltaX, yFill, xFillRight, yFill))
+            yFill += fillStep
+            
+        return res
+    
+    #在特定点上画一个垂直的矩形椭圆（可能为实心，或空心）
+    #根据x,y,penWidth生成[(x1,y1,x2,y2),(x1',y1',x2',y2'),...]画线序列
+    #x,y:要画矩形椭圆的坐标（微米）
+    #penWidth：笔尖宽度（微米）
+    def RenderObroundVertical(self, x, y, penWidth):
+        penHalf = penWidth / 2
+        fillStep = penWidth * 2 / 3
+        radius = self.outerEdge1 / 2 - penHalf
+        xLeft = x - radius
+        xRight = x + radius
+        yTop = y - self.outerEdge2 / 2
+        yBottom = y + self.outerEdge2 / 2
+        alphaStep = ANGLE_PER_SIDE
+        alphaStart = 0.0 #定义水平向左为0度，逆时针增加
+        
+        #先画一个外框
+        res = [(xLeft, yTop, xLeft, yBottom),]
+        
+        #下半圆
+        tmpPrevX = xLeft
+        tmpPrevY = yBottom       
+        if radius <= penHalf: #半径太小了，则仅在端点点一个点即可
+            res.append((x, yBottom, x, yBottom))
+        else:
+            alpha = alphaStart
+            while alpha <= math.pi:
+                deltaX = radius * math.cos(alpha)
+                deltaY = radius * math.sin(alpha)
+                currX = x - deltaX
+                currY = yBottom + deltaY
+                res.append((tmpPrevX, tmpPrevY, currX, currY))
+                tmpPrevX = currX
+                tmpPrevY = currY
+                alpha += alphaStep
+            res.append((tmpPrevX, tmpPrevY, xRight, yBottom)) #封口
+        
+        res.append((xRight, yBottom, xRight, yTop)) #第二根线
+        
+        #左半圆
+        if radius <= penHalf: #半径太小了，则仅在端点点一个点即可
+            res.append((x, yTop, x, yTop))
+        else:
+            tmpPrevX = xRight
+            tmpPrevY = yTop
+            while alpha <= math.pi * 2:
+                deltaX = radius * math.cos(alpha)
+                deltaY = radius * math.sin(alpha)
+                currX = x - deltaX
+                currY = yTop + deltaY
+                res.append((tmpPrevX, tmpPrevY, currX, currY))
+                tmpPrevX = currX
+                tmpPrevY = currY
+                alpha += alphaStep
+            res.append((tmpPrevX, tmpPrevY, xLeft, yTop))
+        
+        if radius <= penHalf: #半径太小则无法填充内部
+            return res
+        
+        #填充
+        xFill = xLeft + fillStep
+        while xFill < xRight:
+            deltaX = x - xFill
+            cosDeltaX = deltaX / radius
+            alpha = math.acos(cosDeltaX if cosDeltaX > -1.0 else -1.0) #避免浮点计算误差
+            deltaY = radius * math.sin(alpha)
+            yFillTop = yTop - deltaY
+            yFillBottom = yBottom + deltaY
+            
+            if self.innerEdge1 == 0.0: #实心
+                res.append((xFill, yFillTop, xFill, yFillBottom))
+            elif self.innerEdge2 == 0.0: #圆孔
+                #左半部或右半部
+                if ((xFill < x - self.innerEdge1 / 2 - penHalf) 
+                    or (xFill > x + self.innerEdge1 / 2 + penHalf)):
+                    res.append((xFill, yFillTop, xFill, yFillBottom))
+                else: #中间分成上下两部分
+                    r = self.innerEdge1 / 2 + penHalf
+                    deltaY = math.sqrt(math.pow(r, 2) - math.pow(abs(x - xFill), 2))
+                    res.append((xFill, yFillTop, xFill, y - deltaY))
+                    res.append((xFill, y + deltaY, xFill, yFillBottom))                
+            else: #方孔
+                #上半部或下半部
+                if ((xFill < x - self.innerEdge2 / 2 - penHalf) 
+                    or (xFill > x + self.innerEdge2 / 2 + penHalf)):
+                    res.append((xFill, yFillTop, xFill, yFillBottom))
+                else: #中间分成上下两部分
+                    deltaY = self.innerEdge1 / 2 + penHalf
+                    res.append((xFill, yFillTop, xFill, y - deltaY))
+                    res.append((xFill, y + deltaY, xFill, yFillBottom))
+            xFill += fillStep
+            
+        return res
         
 #发出声音提醒
 def SoundNotify(single=True):
