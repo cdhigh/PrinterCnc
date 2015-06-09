@@ -25,7 +25,7 @@ License:
     2015-05-14
 """
 
-__Version__ = 'v1.1'
+__Version__ = 'v1.1.1'
 
 import os, sys, re, time, datetime, math
 try:
@@ -754,16 +754,19 @@ class Application(Application_ui):
             self.saveLogToFile(sf)
     
     def cmdResetX_Cmd(self, event=None):
+        self.AddCommandLog(b'@resetx') #虚拟命令，实际上没有下发到控制板
         self.cnc.Reset(x=True)
         if self.hasSimulator():
             self.simulator.Reset(x=True)
     
     def cmdResetY_Cmd(self, event=None):
+        self.AddCommandLog(b'@resety') #虚拟命令，实际上没有下发到控制板
         self.cnc.Reset(y=True)
         if self.hasSimulator():
             self.simulator.Reset(y=True)
     
     def cmdResetZ_Cmd(self, event=None):
+        self.AddCommandLog(b'@resetz') #虚拟命令，实际上没有下发到控制板
         self.cnc.Reset(z=True)
         if self.hasSimulator():
             self.simulator.Reset(z=True)
@@ -981,7 +984,7 @@ class Application(Application_ui):
             self.txtMinHoleVar.set('0.8')
             minHole = 0.8
         
-        for line in lines[:50]: #在前面50行获取元信息，一般足够了
+        for line in lines[:100]: #在前面100行获取元信息，一般足够了
             if line.startswith('G04'): #注释行
                 continue
                 
@@ -2106,6 +2109,14 @@ class Aperture:
         yEdgeTop = y - yEdgeHalf
         yEdgeBottom = y + yEdgeHalf
         
+        #优化小尺寸焊盘
+        if self.outerEdge1 <= penWidth and self.outerEdge2 <= penWidth:
+            return [(x,y,x,y)] #太小了，打一个点即可
+        elif self.outerEdge1 <= penWidth:
+            return [(x, yEdgeTop, x, yEdgeBottom)] #画一个竖线代替
+        elif self.outerEdge2 <= penWidth:
+            return [(xEdgeLeft, y, xEdgeRight, y)] #画一个横线代替
+            
         #先画一个外框
         res = [(xEdgeLeft, yEdgeTop, xEdgeRight, yEdgeTop),
                 (xEdgeRight, yEdgeTop, xEdgeRight, yEdgeBottom),
@@ -2200,10 +2211,14 @@ class Aperture:
     #x,y:要画多边形的坐标（微米）
     #penWidth：笔尖宽度（微米）
     def RenderPolygon(self, x, y, penWidth):
+        if self.outerEdge1 <= penWidth:
+            return [(x,y,x,y)] #太小则打一个点即可
+            
         penHalf = penWidth / 2
         radiusStep = penWidth * 2 / 3
         sideNum = self.outerEdge2
         radius = self.outerEdge1 / 2 - penHalf
+        
         #根据边数设定第一个顶点位置
         if sideNum in (3, 5, 7, 9, 11) or sideNum > 12:
             firstX = tmpPrevX = x #圆最上方的点
@@ -2254,6 +2269,10 @@ class Aperture:
         yBottom = y + radius
         alphaStep = ANGLE_PER_SIDE
         alphaStart = 0.0 #定义垂直向上为0度，顺时针增加
+        
+        #优化小尺寸焊盘
+        if self.outerEdge2 <= penWidth:
+            return [(xLeft, y, xRight, y)]
         
         #先画一个外框
         res = [(xLeft, yTop, xRight, yTop),]
@@ -2347,6 +2366,10 @@ class Aperture:
         yBottom = y + self.outerEdge2 / 2
         alphaStep = ANGLE_PER_SIDE
         alphaStart = 0.0 #定义水平向左为0度，逆时针增加
+        
+        #优化小尺寸焊盘
+        if self.outerEdge1 <= penWidth:
+            return [(x, yTop, x, yBottom)]
         
         #先画一个外框
         res = [(xLeft, yTop, xLeft, yBottom),]
