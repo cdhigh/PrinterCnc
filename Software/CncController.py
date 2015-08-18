@@ -25,13 +25,10 @@ License:
     2015-05-14
 """
 
-__Version__ = 'v1.1.1'
+__Version__ = 'v1.1.4'
 
 import os, sys, re, time, datetime, math
-try:
-    from tkinter import *
-except ImportError:  #Python 2.x
-    PythonVersion = 2
+if sys.version_info[0] == 2:
     from Tkinter import *
     from tkFont import Font
     from ttk import *
@@ -43,7 +40,7 @@ except ImportError:  #Python 2.x
     from Queue import Queue
     import ConfigParser as configparser
 else:  #Python 3.x
-    PythonVersion = 3
+    from tkinter import *
     from tkinter.font import Font
     from tkinter.ttk import *
     from tkinter.messagebox import *
@@ -57,12 +54,13 @@ try: #用于Beep声音提醒
 except ImportError:
     winsound = None
     
+from operator import itemgetter
 from threading import Thread, Event
 import serial
 
 CFG_FILE = 'CncController.ini'
 ANGLE_PER_SIDE = 0.017453293 * 10 #用多边形逼近圆形时的步进角度，值越小越圆，但数据量越大
-END_CMD = b'@$END#'
+END_CMD = b'@END'
 
 if getattr(sys, 'frozen', False): #在cxFreeze打包后
     __file__ = sys.executable
@@ -78,14 +76,17 @@ def GerberFileMask():
            ("Gerber Files","*.gbr"),("Gerber Files","*.gbl"),
            ("Gerber Files","*.gtl"),("Gerber Files","*.top"),
            ("Gerber Files","*.bot"),("Gerber Files","*.gerber"),
-           ("All Files", "*")]
-
+           ("All Files", "*.*")]
+           
+#用于设定在打开钻孔文件中的文件后缀
+def ExcellonFileMask():
+    return [('Excellon Drill Files', '*.drl'),('All Files', '*.*')]
+    
 class Application_ui(Frame):
     #这个类仅实现界面生成功能，具体事件处理代码在子类Application中。
     def __init__(self, master=None):
         Frame.__init__(self, master)
         self.master.title('PrinterCnc Controller - <https://github.com/cdhigh>')
-        #self.master.resizable(0,0)
         self.icondata = """
             R0lGODlhGAEXAfcAAP//////zP//mf//Zv//M///AP/M///MzP/Mmf/MZv/MM//MAP+Z
             //+ZzP+Zmf+ZZv+ZM/+ZAP9m//9mzP9mmf9mZv9mM/9mAP8z//8zzP8zmf8zZv8zM/8z
@@ -165,8 +166,8 @@ class Application_ui(Frame):
         ws = self.master.winfo_screenwidth()
         hs = self.master.winfo_screenheight()
         x = (ws / 2) - (747 / 2)
-        y = (hs / 2) - (541 / 2)
-        self.master.geometry('%dx%d+%d+%d' % (747,541,x,y))
+        y = (hs / 2) - (581 / 2)
+        self.master.geometry('%dx%d+%d+%d' % (747,581,x,y))
         self.createWidgets()
 
     def createWidgets(self):
@@ -174,255 +175,241 @@ class Application_ui(Frame):
 
         self.style = Style()
 
+        self.frmStatus = LabelFrame(self.top, text='')
+        self.frmStatus.place(relx=0.011, rely=0.771, relwidth=0.483, relheight=0.098)
+
+        self.tabMachine = Notebook(self.top)
+        self.tabMachine.place(relx=0.011, rely=0.138, relwidth=0.483, relheight=0.305)
+
+        self.tabMachine__Tab1 = Frame(self.tabMachine)
+        self.cmdApplyAxisSpeed = Button(self.tabMachine__Tab1, text='应用', command=self.cmdApplyAxisSpeed_Cmd)
+        self.cmdApplyAxisSpeed.place(relx=0.288, rely=0.745, relwidth=0.402, relheight=0.155)
+        self.txtAccelerationVar = StringVar(value='100')
+        self.txtAcceleration = Entry(self.tabMachine__Tab1, textvariable=self.txtAccelerationVar)
+        self.txtAcceleration.place(relx=0.731, rely=0.497, relwidth=0.224, relheight=0.155)
+        self.txtXMaxSpeedVar = StringVar(value='50')
+        self.txtXMaxSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtXMaxSpeedVar)
+        self.txtXMaxSpeed.place(relx=0.731, rely=0.099, relwidth=0.224, relheight=0.155)
+        self.txtYMaxSpeedVar = StringVar(value='50')
+        self.txtYMaxSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtYMaxSpeedVar)
+        self.txtYMaxSpeed.place(relx=0.731, rely=0.298, relwidth=0.224, relheight=0.155)
+        self.txtXSpeedVar = StringVar(value='100')
+        self.txtXSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtXSpeedVar)
+        self.txtXSpeed.place(relx=0.244, rely=0.099, relwidth=0.224, relheight=0.155)
+        self.txtYSpeedVar = StringVar(value='120')
+        self.txtYSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtYSpeedVar)
+        self.txtYSpeed.place(relx=0.244, rely=0.298, relwidth=0.224, relheight=0.155)
+        self.txtZSpeedVar = StringVar(value='80')
+        self.txtZSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtZSpeedVar)
+        self.txtZSpeed.place(relx=0.244, rely=0.497, relwidth=0.224, relheight=0.155)
+        self.style.configure('TlblAcceleration.TLabel', anchor='e')
+        self.lblAcceleration = Label(self.tabMachine__Tab1, text='加速度', style='TlblAcceleration.TLabel')
+        self.lblAcceleration.place(relx=0.51, rely=0.497, relwidth=0.18, relheight=0.106)
+        self.style.configure('TlblXMaxSpeed.TLabel', anchor='e')
+        self.lblXMaxSpeed = Label(self.tabMachine__Tab1, text='X轴最快', style='TlblXMaxSpeed.TLabel')
+        self.lblXMaxSpeed.place(relx=0.51, rely=0.099, relwidth=0.18, relheight=0.106)
+        self.style.configure('TlblYMaxSpeed.TLabel', anchor='e')
+        self.lblYMaxSpeed = Label(self.tabMachine__Tab1, text='Y轴最快', style='TlblYMaxSpeed.TLabel')
+        self.lblYMaxSpeed.place(relx=0.51, rely=0.298, relwidth=0.18, relheight=0.106)
+        self.style.configure('TlblXSpeed.TLabel', anchor='e')
+        self.lblXSpeed = Label(self.tabMachine__Tab1, text='X轴速度', style='TlblXSpeed.TLabel')
+        self.lblXSpeed.place(relx=0.022, rely=0.099, relwidth=0.18, relheight=0.106)
+        self.style.configure('TlblYSpeed.TLabel', anchor='e')
+        self.lblYSpeed = Label(self.tabMachine__Tab1, text='Y轴速度', style='TlblYSpeed.TLabel')
+        self.lblYSpeed.place(relx=0.022, rely=0.298, relwidth=0.18, relheight=0.106)
+        self.style.configure('TlblZSpeed.TLabel', anchor='e')
+        self.lblZSpeed = Label(self.tabMachine__Tab1, text='Z轴速度', style='TlblZSpeed.TLabel')
+        self.lblZSpeed.place(relx=0.022, rely=0.497, relwidth=0.18, relheight=0.106)
+        self.tabMachine.add(self.tabMachine__Tab1, text='轴速度（越小越快）')
+
+        self.tabMachine__Tab2 = Frame(self.tabMachine)
+        self.txtPenWidthVar = StringVar(value='0.6')
+        self.txtPenWidth = Entry(self.tabMachine__Tab2, textvariable=self.txtPenWidthVar)
+        self.txtPenWidth.place(relx=0.776, rely=0.298, relwidth=0.18, relheight=0.155)
+        self.txtZLiftStepsVar = StringVar(value='130')
+        self.txtZLiftSteps = Entry(self.tabMachine__Tab2, textvariable=self.txtZLiftStepsVar)
+        self.txtZLiftSteps.place(relx=0.776, rely=0.099, relwidth=0.18, relheight=0.155)
+        self.txtYBacklashVar = StringVar(value='0')
+        self.txtYBacklash = Entry(self.tabMachine__Tab2, textvariable=self.txtYBacklashVar)
+        self.txtYBacklash.place(relx=0.355, rely=0.696, relwidth=0.18, relheight=0.155)
+        self.txtYStepsPerCmVar = StringVar(value='1886')
+        self.txtYStepsPerCm = Entry(self.tabMachine__Tab2, textvariable=self.txtYStepsPerCmVar)
+        self.txtYStepsPerCm.place(relx=0.355, rely=0.497, relwidth=0.18, relheight=0.155)
+        self.txtXBacklashVar = StringVar(value='94')
+        self.txtXBacklash = Entry(self.tabMachine__Tab2, textvariable=self.txtXBacklashVar)
+        self.txtXBacklash.place(relx=0.355, rely=0.298, relwidth=0.18, relheight=0.155)
+        self.txtXStepsPerCmVar = StringVar(value='1886')
+        self.txtXStepsPerCm = Entry(self.tabMachine__Tab2, textvariable=self.txtXStepsPerCmVar)
+        self.txtXStepsPerCm.place(relx=0.355, rely=0.099, relwidth=0.18, relheight=0.155)
+        self.style.configure('TlblPenWidth.TLabel', anchor='e')
+        self.lblPenWidth = Label(self.tabMachine__Tab2, text='笔尖直径', style='TlblPenWidth.TLabel')
+        self.lblPenWidth.place(relx=0.576, rely=0.298, relwidth=0.158, relheight=0.106)
+        self.style.configure('TlblZLiftSteps.TLabel', anchor='e')
+        self.lblZLiftSteps = Label(self.tabMachine__Tab2, text='Z轴升起', style='TlblZLiftSteps.TLabel')
+        self.lblZLiftSteps.place(relx=0.576, rely=0.099, relwidth=0.158, relheight=0.106)
+        self.style.configure('TlblYBacklash.TLabel', anchor='e')
+        self.lblYBacklash = Label(self.tabMachine__Tab2, text='Y轴回差', style='TlblYBacklash.TLabel')
+        self.lblYBacklash.place(relx=0.066, rely=0.696, relwidth=0.269, relheight=0.106)
+        self.style.configure('TlblYStepsPerCm.TLabel', anchor='e')
+        self.lblYStepsPerCm = Label(self.tabMachine__Tab2, text='Y轴每CM步进数', style='TlblYStepsPerCm.TLabel')
+        self.lblYStepsPerCm.place(relx=0.066, rely=0.497, relwidth=0.269, relheight=0.106)
+        self.style.configure('TlblXBacklash.TLabel', anchor='e')
+        self.lblXBacklash = Label(self.tabMachine__Tab2, text='X轴回差', style='TlblXBacklash.TLabel')
+        self.lblXBacklash.place(relx=0.066, rely=0.298, relwidth=0.269, relheight=0.106)
+        self.style.configure('TlblXStepsPerCm.TLabel', anchor='e')
+        self.lblXStepsPerCm = Label(self.tabMachine__Tab2, text='X轴每CM步进数', style='TlblXStepsPerCm.TLabel')
+        self.lblXStepsPerCm.place(relx=0.066, rely=0.099, relwidth=0.269, relheight=0.106)
+        self.tabMachine.add(self.tabMachine__Tab2, text='控制板参数')
+
         self.tabPosition = Notebook(self.top)
-        self.tabPosition.place(relx=0.011, rely=0.414, relwidth=0.483, relheight=0.327)
+        self.tabPosition.place(relx=0.011, rely=0.454, relwidth=0.483, relheight=0.305)
 
         self.tabPosition__Tab1 = Frame(self.tabPosition)
-        self.style.configure('TcmdZMicroUp.TButton', font=('宋体',9))
-        self.cmdZMicroUp = Button(self.tabPosition__Tab1, text='→', command=self.cmdZMicroUp_Cmd, style='TcmdZMicroUp.TButton')
+        self.cmdZMicroUp = Button(self.tabPosition__Tab1, text='→', command=self.cmdZMicroUp_Cmd)
         self.cmdZMicroUp.place(relx=0.576, rely=0.298, relwidth=0.091, relheight=0.205)
-        self.style.configure('TcmdZMicroDown.TButton', font=('宋体',9))
-        self.cmdZMicroDown = Button(self.tabPosition__Tab1, text='←', command=self.cmdZMicroDown_Cmd, style='TcmdZMicroDown.TButton')
+        self.cmdZMicroDown = Button(self.tabPosition__Tab1, text='←', command=self.cmdZMicroDown_Cmd)
         self.cmdZMicroDown.place(relx=0.399, rely=0.298, relwidth=0.091, relheight=0.205)
-        self.style.configure('TcmdYUp.TButton', font=('宋体',9))
-        self.cmdYUp = Button(self.tabPosition__Tab1, text='↑', command=self.cmdYUp_Cmd, style='TcmdYUp.TButton')
+        self.cmdYUp = Button(self.tabPosition__Tab1, text='↑', command=self.cmdYUp_Cmd)
         self.cmdYUp.place(relx=0.177, rely=0.099, relwidth=0.091, relheight=0.205)
-        self.style.configure('TcmdYDown.TButton', font=('宋体',9))
-        self.cmdYDown = Button(self.tabPosition__Tab1, text='↓', command=self.cmdYDown_Cmd, style='TcmdYDown.TButton')
+        self.cmdYDown = Button(self.tabPosition__Tab1, text='↓', command=self.cmdYDown_Cmd)
         self.cmdYDown.place(relx=0.177, rely=0.497, relwidth=0.091, relheight=0.205)
-        self.style.configure('TcmdXLeft.TButton', font=('宋体',9))
-        self.cmdXLeft = Button(self.tabPosition__Tab1, text='←', command=self.cmdXLeft_Cmd, style='TcmdXLeft.TButton')
+        self.cmdXLeft = Button(self.tabPosition__Tab1, text='←', command=self.cmdXLeft_Cmd)
         self.cmdXLeft.place(relx=0.089, rely=0.298, relwidth=0.091, relheight=0.205)
-        self.style.configure('TcmdXRight.TButton', font=('宋体',9))
-        self.cmdXRight = Button(self.tabPosition__Tab1, text='→', command=self.cmdXRight_Cmd, style='TcmdXRight.TButton')
+        self.cmdXRight = Button(self.tabPosition__Tab1, text='→', command=self.cmdXRight_Cmd)
         self.cmdXRight.place(relx=0.266, rely=0.298, relwidth=0.091, relheight=0.205)
-        self.style.configure('TcmdZUp.TButton', font=('宋体',9))
-        self.cmdZUp = Button(self.tabPosition__Tab1, text='↑', command=self.cmdZUp_Cmd, style='TcmdZUp.TButton')
+        self.cmdZUp = Button(self.tabPosition__Tab1, text='↑', command=self.cmdZUp_Cmd)
         self.cmdZUp.place(relx=0.488, rely=0.099, relwidth=0.091, relheight=0.205)
-        self.style.configure('TcmdZDown.TButton', font=('宋体',9))
-        self.cmdZDown = Button(self.tabPosition__Tab1, text='↓', command=self.cmdZDown_Cmd, style='TcmdZDown.TButton')
+        self.cmdZDown = Button(self.tabPosition__Tab1, text='↓', command=self.cmdZDown_Cmd)
         self.cmdZDown.place(relx=0.488, rely=0.497, relwidth=0.091, relheight=0.205)
-        self.style.configure('TcmdResetX.TButton', font=('宋体',9))
-        self.cmdResetX = Button(self.tabPosition__Tab1, text='X清零', command=self.cmdResetX_Cmd, style='TcmdResetX.TButton')
+        self.cmdResetX = Button(self.tabPosition__Tab1, text='X清零', command=self.cmdResetX_Cmd)
         self.cmdResetX.place(relx=0.731, rely=0.099, relwidth=0.202, relheight=0.155)
-        self.style.configure('TcmdResetY.TButton', font=('宋体',9))
-        self.cmdResetY = Button(self.tabPosition__Tab1, text='Y清零', command=self.cmdResetY_Cmd, style='TcmdResetY.TButton')
+        self.cmdResetY = Button(self.tabPosition__Tab1, text='Y清零', command=self.cmdResetY_Cmd)
         self.cmdResetY.place(relx=0.731, rely=0.298, relwidth=0.202, relheight=0.155)
-        self.style.configure('TcmdResetZ.TButton', font=('宋体',9))
-        self.cmdResetZ = Button(self.tabPosition__Tab1, text='Z清零', command=self.cmdResetZ_Cmd, style='TcmdResetZ.TButton')
+        self.cmdResetZ = Button(self.tabPosition__Tab1, text='Z清零', command=self.cmdResetZ_Cmd)
         self.cmdResetZ.place(relx=0.731, rely=0.497, relwidth=0.202, relheight=0.155)
-        self.style.configure('TcmdResetXYZ.TButton', font=('宋体',9))
-        self.cmdResetXYZ = Button(self.tabPosition__Tab1, text='全部清零', command=self.cmdResetXYZ_Cmd, style='TcmdResetXYZ.TButton')
+        self.cmdResetXYZ = Button(self.tabPosition__Tab1, text='全部清零', command=self.cmdResetXYZ_Cmd)
         self.cmdResetXYZ.place(relx=0.731, rely=0.696, relwidth=0.202, relheight=0.155)
-        self.style.configure('TlblXY.TLabel', anchor='center', font=('宋体',9))
+        self.style.configure('TlblXY.TLabel', anchor='center')
         self.lblXY = Label(self.tabPosition__Tab1, text='XY', style='TlblXY.TLabel')
         self.lblXY.place(relx=0.177, rely=0.795, relwidth=0.08, relheight=0.124)
-        self.style.configure('TlblZ.TLabel', anchor='center', font=('宋体',9))
+        self.style.configure('TlblZ.TLabel', anchor='center')
         self.lblZ = Label(self.tabPosition__Tab1, text='Z', style='TlblZ.TLabel')
         self.lblZ.place(relx=0.488, rely=0.795, relwidth=0.091, relheight=0.106)
         self.tabPosition.add(self.tabPosition__Tab1, text='设定原点')
 
         self.tabPosition__Tab2 = Frame(self.tabPosition)
-        self.style.configure('TcmdMoveToRightBottom.TButton', font=('宋体',9))
-        self.cmdMoveToRightBottom = Button(self.tabPosition__Tab2, text='右下角', command=self.cmdMoveToRightBottom_Cmd, style='TcmdMoveToRightBottom.TButton')
+        self.cmdMoveToRightBottom = Button(self.tabPosition__Tab2, text='右下角', command=self.cmdMoveToRightBottom_Cmd)
         self.cmdMoveToRightBottom.place(relx=0.643, rely=0.795, relwidth=0.247, relheight=0.124)
-        self.style.configure('TcmdMoveToLeftBottom.TButton', font=('宋体',9))
-        self.cmdMoveToLeftBottom = Button(self.tabPosition__Tab2, text='左下角', command=self.cmdMoveToLeftBottom_Cmd, style='TcmdMoveToLeftBottom.TButton')
+        self.cmdMoveToLeftBottom = Button(self.tabPosition__Tab2, text='左下角', command=self.cmdMoveToLeftBottom_Cmd)
         self.cmdMoveToLeftBottom.place(relx=0.643, rely=0.621, relwidth=0.247, relheight=0.124)
-        self.style.configure('TcmdMoveToRightUp.TButton', font=('宋体',9))
-        self.cmdMoveToRightUp = Button(self.tabPosition__Tab2, text='右上角', command=self.cmdMoveToRightUp_Cmd, style='TcmdMoveToRightUp.TButton')
+        self.cmdMoveToRightUp = Button(self.tabPosition__Tab2, text='右上角', command=self.cmdMoveToRightUp_Cmd)
         self.cmdMoveToRightUp.place(relx=0.643, rely=0.447, relwidth=0.247, relheight=0.124)
-        self.style.configure('TcmdMoveToLeftUp.TButton', font=('宋体',9))
-        self.cmdMoveToLeftUp = Button(self.tabPosition__Tab2, text='左上角', command=self.cmdMoveToLeftUp_Cmd, style='TcmdMoveToLeftUp.TButton')
+        self.cmdMoveToLeftUp = Button(self.tabPosition__Tab2, text='左上角', command=self.cmdMoveToLeftUp_Cmd)
         self.cmdMoveToLeftUp.place(relx=0.643, rely=0.273, relwidth=0.247, relheight=0.124)
-        self.style.configure('TcmdUpdateMinMax.TButton', font=('宋体',9))
-        self.cmdUpdateMinMax = Button(self.tabPosition__Tab2, text='分析', command=self.cmdUpdateMinMax_Cmd, style='TcmdUpdateMinMax.TButton')
+        self.cmdUpdateMinMax = Button(self.tabPosition__Tab2, text='分析', command=self.cmdUpdateMinMax_Cmd)
         self.cmdUpdateMinMax.place(relx=0.643, rely=0.099, relwidth=0.247, relheight=0.124)
         self.txtMaxYVar = StringVar(value='')
-        self.txtMaxY = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMaxYVar, font=('宋体',9))
+        self.txtMaxY = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMaxYVar)
         self.txtMaxY.place(relx=0.288, rely=0.795, relwidth=0.202, relheight=0.112)
         self.txtMinYVar = StringVar(value='')
-        self.txtMinY = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMinYVar, font=('宋体',9))
+        self.txtMinY = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMinYVar)
         self.txtMinY.place(relx=0.288, rely=0.578, relwidth=0.202, relheight=0.112)
         self.txtMaxXVar = StringVar(value='')
-        self.txtMaxX = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMaxXVar, font=('宋体',9))
+        self.txtMaxX = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMaxXVar)
         self.txtMaxX.place(relx=0.288, rely=0.366, relwidth=0.202, relheight=0.112)
         self.txtMinXVar = StringVar(value='')
-        self.txtMinX = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMinXVar, font=('宋体',9))
+        self.txtMinX = Entry(self.tabPosition__Tab2, state='readonly', textvariable=self.txtMinXVar)
         self.txtMinX.place(relx=0.288, rely=0.149, relwidth=0.202, relheight=0.112)
-        self.style.configure('TlblMaxY.TLabel', anchor='e', font=('宋体',9))
+        self.style.configure('TlblMaxY.TLabel', anchor='e')
         self.lblMaxY = Label(self.tabPosition__Tab2, text='Y最大', style='TlblMaxY.TLabel')
         self.lblMaxY.place(relx=0.133, rely=0.795, relwidth=0.114, relheight=0.106)
-        self.style.configure('TlblMinY.TLabel', anchor='e', font=('宋体',9))
+        self.style.configure('TlblMinY.TLabel', anchor='e')
         self.lblMinY = Label(self.tabPosition__Tab2, text='Y最小', style='TlblMinY.TLabel')
         self.lblMinY.place(relx=0.133, rely=0.578, relwidth=0.114, relheight=0.106)
-        self.style.configure('TlblMaxX.TLabel', anchor='e', font=('宋体',9))
+        self.style.configure('TlblMaxX.TLabel', anchor='e')
         self.lblMaxX = Label(self.tabPosition__Tab2, text='X最大', style='TlblMaxX.TLabel')
         self.lblMaxX.place(relx=0.133, rely=0.366, relwidth=0.114, relheight=0.106)
-        self.style.configure('TlblMinX.TLabel', anchor='e', font=('宋体',9))
+        self.style.configure('TlblMinX.TLabel', anchor='e')
         self.lblMinX = Label(self.tabPosition__Tab2, text='X最小', style='TlblMinX.TLabel')
         self.lblMinX.place(relx=0.133, rely=0.149, relwidth=0.114, relheight=0.106)
         self.tabPosition.add(self.tabPosition__Tab2, text='打印区域定位')
 
         self.tabPosition__Tab3 = Frame(self.tabPosition)
         self.chkOmitRegionCmdVar = IntVar(value=0)
-        self.style.configure('TchkOmitRegionCmd.TCheckbutton', font=('宋体',9))
-        self.chkOmitRegionCmd = Checkbutton(self.tabPosition__Tab3, text='忽略区域绘图命令', variable=self.chkOmitRegionCmdVar, style='TchkOmitRegionCmd.TCheckbutton')
+        self.chkOmitRegionCmd = Checkbutton(self.tabPosition__Tab3, text='忽略区域绘图命令', variable=self.chkOmitRegionCmdVar)
         self.chkOmitRegionCmd.place(relx=0.066, rely=0.348, relwidth=0.38, relheight=0.106)
         self.chkForceHoleVar = IntVar(value=0)
-        self.style.configure('TchkForceHole.TCheckbutton', font=('宋体',9))
-        self.chkForceHole = Checkbutton(self.tabPosition__Tab3, text='强制所有焊盘开孔', variable=self.chkForceHoleVar, style='TchkForceHole.TCheckbutton')
+        self.chkForceHole = Checkbutton(self.tabPosition__Tab3, text='强制所有焊盘开孔', variable=self.chkForceHoleVar)
         self.chkForceHole.place(relx=0.066, rely=0.149, relwidth=0.402, relheight=0.106)
         self.txtMinHoleVar = StringVar(value='0.8')
-        self.txtMinHole = Entry(self.tabPosition__Tab3, textvariable=self.txtMinHoleVar, font=('宋体',9))
+        self.txtMinHole = Entry(self.tabPosition__Tab3, textvariable=self.txtMinHoleVar)
         self.txtMinHole.place(relx=0.753, rely=0.149, relwidth=0.18, relheight=0.112)
-        self.style.configure('TlblMinHole.TLabel', anchor='e', font=('宋体',9))
+        self.style.configure('TlblMinHole.TLabel', anchor='e')
         self.lblMinHole = Label(self.tabPosition__Tab3, text='最小开孔(mm)', style='TlblMinHole.TLabel')
         self.lblMinHole.place(relx=0.465, rely=0.149, relwidth=0.269, relheight=0.106)
         self.tabPosition.add(self.tabPosition__Tab3, text='其他配置')
 
-        self.style.configure('TcmdStartSimulator.TButton', font=('宋体',9))
-        self.cmdStartSimulator = Button(self.top, text='打开模拟器(E)', underline=6, command=self.cmdStartSimulator_Cmd, style='TcmdStartSimulator.TButton')
-        self.cmdStartSimulator.place(relx=0.032, rely=0.902, relwidth=0.162, relheight=0.076)
+        self.cmdStartSimulator = Button(self.top, text='打开模拟器(E)', underline=6, command=self.cmdStartSimulator_Cmd)
+        self.cmdStartSimulator.place(relx=0.032, rely=0.909, relwidth=0.162, relheight=0.071)
         self.top.bind_all('<Alt-E>', lambda e: self.cmdStartSimulator.focus_set() or self.cmdStartSimulator.invoke())
         self.top.bind_all('<Alt-e>', lambda e: self.cmdStartSimulator.focus_set() or self.cmdStartSimulator.invoke())
 
-        self.style.configure('TcmdPause.TButton', font=('宋体',9))
-        self.cmdPause = Button(self.top, text='暂停(P)', underline=3, command=self.cmdPause_Cmd, style='TcmdPause.TButton')
-        self.cmdPause.place(relx=0.546, rely=0.902, relwidth=0.162, relheight=0.076)
+        self.cmdPause = Button(self.top, text='暂停(P)', underline=3, command=self.cmdPause_Cmd)
+        self.cmdPause.place(relx=0.546, rely=0.909, relwidth=0.162, relheight=0.071)
         self.top.bind_all('<Alt-P>', lambda e: self.cmdPause.focus_set() or self.cmdPause.invoke())
         self.top.bind_all('<Alt-p>', lambda e: self.cmdPause.focus_set() or self.cmdPause.invoke())
 
-        self.style.configure('TcmdStop.TButton', background='#F0F0F0', font=('宋体',9))
+        self.style.configure('TcmdStop.TButton', background='#ECE9D8')
         self.cmdStop = Button(self.top, text='停止(T)', underline=3, command=self.cmdStop_Cmd, style='TcmdStop.TButton')
-        self.cmdStop.place(relx=0.803, rely=0.902, relwidth=0.162, relheight=0.076)
+        self.cmdStop.place(relx=0.803, rely=0.909, relwidth=0.162, relheight=0.071)
         self.top.bind_all('<Alt-T>', lambda e: self.cmdStop.focus_set() or self.cmdStop.invoke())
         self.top.bind_all('<Alt-t>', lambda e: self.cmdStop.focus_set() or self.cmdStop.invoke())
 
-        self.style.configure('TfrmManualCmd.TLabelframe', font=('宋体',9))
-        self.style.configure('TfrmManualCmd.TLabelframe.Label', font=('宋体',9))
-        self.frmManualCmd = LabelFrame(self.top, text='手动执行命令', style='TfrmManualCmd.TLabelframe')
-        self.frmManualCmd.place(relx=0.503, rely=0.754, relwidth=0.483, relheight=0.105)
+        self.frmManualCmd = LabelFrame(self.top, text='手动执行命令')
+        self.frmManualCmd.place(relx=0.503, rely=0.771, relwidth=0.483, relheight=0.098)
 
-        self.style.configure('TfrmLog.TLabelframe', font=('宋体',9))
-        self.style.configure('TfrmLog.TLabelframe.Label', font=('宋体',9))
-        self.frmLog = LabelFrame(self.top, text='收发数据', style='TfrmLog.TLabelframe')
-        self.frmLog.place(relx=0.503, rely=0.251, relwidth=0.483, relheight=0.49)
+        self.frmLog = LabelFrame(self.top, text='收发数据')
+        self.frmLog.place(relx=0.503, rely=0.303, relwidth=0.483, relheight=0.456)
 
-        self.style.configure('TfrmSerial.TLabelframe', font=('宋体',9))
-        self.style.configure('TfrmSerial.TLabelframe.Label', font=('宋体',9))
-        self.frmSerial = LabelFrame(self.top, text='端口设置', style='TfrmSerial.TLabelframe')
-        self.frmSerial.place(relx=0.503, rely=0.074, relwidth=0.483, relheight=0.165)
+        self.frmSerial = LabelFrame(self.top, text='端口设置')
+        self.frmSerial.place(relx=0.503, rely=0.138, relwidth=0.483, relheight=0.153)
 
-        self.style.configure('TcmdStart.TButton', font=('宋体',9))
-        self.cmdStart = Button(self.top, text='启动(S)', underline=3, command=self.cmdStart_Cmd, style='TcmdStart.TButton')
-        self.cmdStart.place(relx=0.289, rely=0.902, relwidth=0.162, relheight=0.076)
+        self.cmdStart = Button(self.top, text='启动(S)', underline=3, command=self.cmdStart_Cmd)
+        self.cmdStart.place(relx=0.289, rely=0.909, relwidth=0.162, relheight=0.071)
         self.top.bind_all('<Alt-S>', lambda e: self.cmdStart.focus_set() or self.cmdStart.invoke())
         self.top.bind_all('<Alt-s>', lambda e: self.cmdStart.focus_set() or self.cmdStart.invoke())
 
-        self.style.configure('TcmdChooseFile.TButton', font=('宋体',9))
-        self.cmdChooseFile = Button(self.top, text='...', command=self.cmdChooseFile_Cmd, style='TcmdChooseFile.TButton')
-        self.cmdChooseFile.place(relx=0.932, rely=0.015, relwidth=0.055, relheight=0.046)
+        self.cmdChooseFile = Button(self.top, text='...', command=self.cmdChooseFile_Cmd)
+        self.cmdChooseFile.place(relx=0.932, rely=0.014, relwidth=0.055, relheight=0.043)
 
         self.txtSourceFileVar = StringVar(value='')
-        self.txtSourceFile = Entry(self.top, textvariable=self.txtSourceFileVar, font=('宋体',9))
-        self.txtSourceFile.place(relx=0.107, rely=0.015, relwidth=0.815, relheight=0.046)
+        self.txtSourceFile = Entry(self.top, textvariable=self.txtSourceFileVar)
+        self.txtSourceFile.place(relx=0.182, rely=0.014, relwidth=0.74, relheight=0.043)
 
-        self.style.configure('TlblSourceFile.TLabel', anchor='e', font=('宋体',9))
-        self.lblSourceFile = Label(self.top, text='输入文件', style='TlblSourceFile.TLabel')
-        self.lblSourceFile.place(relx=0.011, rely=0.015, relwidth=0.087, relheight=0.046)
+        self.style.configure('TlblSourceFile.TLabel', anchor='e')
+        self.lblSourceFile = Label(self.top, text='Gerber文件', style='TlblSourceFile.TLabel')
+        self.lblSourceFile.place(relx=0.011, rely=0.014, relwidth=0.162, relheight=0.029)
 
-        self.tabMachine = Notebook(self.top)
-        self.tabMachine.place(relx=0.011, rely=0.074, relwidth=0.483, relheight=0.327)
+        self.cmdExcellonFile = Button(self.top, text='...', command=self.cmdExcellonFile_Cmd)
+        self.cmdExcellonFile.place(relx=0.932, rely=0.069, relwidth=0.055, relheight=0.043)
 
-        self.tabMachine__Tab1 = Frame(self.tabMachine)
-        self.txtZSpeedVar = StringVar(value='80')
-        self.txtZSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtZSpeedVar, font=('宋体',9))
-        self.txtZSpeed.place(relx=0.244, rely=0.497, relwidth=0.224, relheight=0.155)
-        self.txtYSpeedVar = StringVar(value='120')
-        self.txtYSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtYSpeedVar, font=('宋体',9))
-        self.txtYSpeed.place(relx=0.244, rely=0.298, relwidth=0.224, relheight=0.155)
-        self.txtXSpeedVar = StringVar(value='100')
-        self.txtXSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtXSpeedVar, font=('宋体',9))
-        self.txtXSpeed.place(relx=0.244, rely=0.099, relwidth=0.224, relheight=0.155)
-        self.style.configure('TlblZSpeed.TLabel', anchor='e', font=('宋体',9))
-        self.lblZSpeed = Label(self.tabMachine__Tab1, text='Z轴速度', style='TlblZSpeed.TLabel')
-        self.lblZSpeed.place(relx=0.022, rely=0.497, relwidth=0.18, relheight=0.106)
-        self.style.configure('TlblYSpeed.TLabel', anchor='e', font=('宋体',9))
-        self.lblYSpeed = Label(self.tabMachine__Tab1, text='Y轴速度', style='TlblYSpeed.TLabel')
-        self.lblYSpeed.place(relx=0.022, rely=0.298, relwidth=0.18, relheight=0.106)
-        self.style.configure('TlblXSpeed.TLabel', anchor='e', font=('宋体',9))
-        self.lblXSpeed = Label(self.tabMachine__Tab1, text='X轴速度', style='TlblXSpeed.TLabel')
-        self.lblXSpeed.place(relx=0.022, rely=0.099, relwidth=0.18, relheight=0.106)
-        self.txtYMaxSpeedVar = StringVar(value='50')
-        self.txtYMaxSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtYMaxSpeedVar, font=('宋体',9))
-        self.txtYMaxSpeed.place(relx=0.731, rely=0.298, relwidth=0.224, relheight=0.155)
-        self.txtXMaxSpeedVar = StringVar(value='50')
-        self.txtXMaxSpeed = Entry(self.tabMachine__Tab1, textvariable=self.txtXMaxSpeedVar, font=('宋体',9))
-        self.txtXMaxSpeed.place(relx=0.731, rely=0.099, relwidth=0.224, relheight=0.155)
-        self.style.configure('TlblYMaxSpeed.TLabel', anchor='e', font=('宋体',9))
-        self.lblYMaxSpeed = Label(self.tabMachine__Tab1, text='Y轴最快', style='TlblYMaxSpeed.TLabel')
-        self.lblYMaxSpeed.place(relx=0.51, rely=0.298, relwidth=0.18, relheight=0.106)
-        self.style.configure('TlblXMaxSpeed.TLabel', anchor='e', font=('宋体',9))
-        self.lblXMaxSpeed = Label(self.tabMachine__Tab1, text='X轴最快', style='TlblXMaxSpeed.TLabel')
-        self.lblXMaxSpeed.place(relx=0.51, rely=0.099, relwidth=0.18, relheight=0.106)
-        self.txtAccelerationVar = StringVar(value='100')
-        self.txtAcceleration = Entry(self.tabMachine__Tab1, textvariable=self.txtAccelerationVar, font=('宋体',9))
-        self.txtAcceleration.place(relx=0.731, rely=0.497, relwidth=0.224, relheight=0.155)
-        self.style.configure('TlblAcceleration.TLabel', anchor='e', font=('宋体',9))
-        self.lblAcceleration = Label(self.tabMachine__Tab1, text='加速度', style='TlblAcceleration.TLabel')
-        self.lblAcceleration.place(relx=0.51, rely=0.497, relwidth=0.18, relheight=0.106)
-        self.style.configure('TcmdApplyAxisSpeed.TButton', font=('宋体',9))
-        self.cmdApplyAxisSpeed = Button(self.tabMachine__Tab1, text='应用', command=self.cmdApplyAxisSpeed_Cmd, style='TcmdApplyAxisSpeed.TButton')
-        self.cmdApplyAxisSpeed.place(relx=0.288, rely=0.745, relwidth=0.402, relheight=0.155)
-        self.tabMachine.add(self.tabMachine__Tab1, text='轴速度（越小越快）')
+        self.txtExcellonFileVar = StringVar(value='')
+        self.txtExcellonFile = Entry(self.top, textvariable=self.txtExcellonFileVar)
+        self.txtExcellonFile.place(relx=0.182, rely=0.069, relwidth=0.74, relheight=0.043)
 
-        self.tabMachine__Tab2 = Frame(self.tabMachine)
-        self.txtXStepsPerCmVar = StringVar(value='1886')
-        self.txtXStepsPerCm = Entry(self.tabMachine__Tab2, textvariable=self.txtXStepsPerCmVar, font=('宋体',9))
-        self.txtXStepsPerCm.place(relx=0.355, rely=0.099, relwidth=0.18, relheight=0.155)
-        self.style.configure('TlblXStepsPerCm.TLabel', anchor='e', font=('宋体',9))
-        self.lblXStepsPerCm = Label(self.tabMachine__Tab2, text='X轴每CM步进数', style='TlblXStepsPerCm.TLabel')
-        self.lblXStepsPerCm.place(relx=0.066, rely=0.099, relwidth=0.269, relheight=0.106)
-        self.txtXBacklashVar = StringVar(value='94')
-        self.txtXBacklash = Entry(self.tabMachine__Tab2, textvariable=self.txtXBacklashVar, font=('宋体',9))
-        self.txtXBacklash.place(relx=0.355, rely=0.298, relwidth=0.18, relheight=0.155)
-        self.style.configure('TlblXBacklash.TLabel', anchor='e', font=('宋体',9))
-        self.lblXBacklash = Label(self.tabMachine__Tab2, text='X轴回差', style='TlblXBacklash.TLabel')
-        self.lblXBacklash.place(relx=0.066, rely=0.298, relwidth=0.269, relheight=0.106)
-        self.txtYStepsPerCmVar = StringVar(value='1886')
-        self.txtYStepsPerCm = Entry(self.tabMachine__Tab2, textvariable=self.txtYStepsPerCmVar, font=('宋体',9))
-        self.txtYStepsPerCm.place(relx=0.355, rely=0.497, relwidth=0.18, relheight=0.155)
-        self.style.configure('TlblYStepsPerCm.TLabel', anchor='e', font=('宋体',9))
-        self.lblYStepsPerCm = Label(self.tabMachine__Tab2, text='Y轴每CM步进数', style='TlblYStepsPerCm.TLabel')
-        self.lblYStepsPerCm.place(relx=0.066, rely=0.497, relwidth=0.269, relheight=0.106)
-        self.txtYBacklashVar = StringVar(value='0')
-        self.txtYBacklash = Entry(self.tabMachine__Tab2, textvariable=self.txtYBacklashVar, font=('宋体',9))
-        self.txtYBacklash.place(relx=0.355, rely=0.696, relwidth=0.18, relheight=0.155)
-        self.style.configure('TlblYBacklash.TLabel', anchor='e', font=('宋体',9))
-        self.lblYBacklash = Label(self.tabMachine__Tab2, text='Y轴回差', style='TlblYBacklash.TLabel')
-        self.lblYBacklash.place(relx=0.066, rely=0.696, relwidth=0.269, relheight=0.106)
-        self.txtZLiftStepsVar = StringVar(value='130')
-        self.txtZLiftSteps = Entry(self.tabMachine__Tab2, textvariable=self.txtZLiftStepsVar, font=('宋体',9))
-        self.txtZLiftSteps.place(relx=0.776, rely=0.099, relwidth=0.18, relheight=0.155)
-        self.style.configure('TlblZLiftSteps.TLabel', anchor='e', font=('宋体',9))
-        self.lblZLiftSteps = Label(self.tabMachine__Tab2, text='Z轴升起', style='TlblZLiftSteps.TLabel')
-        self.lblZLiftSteps.place(relx=0.576, rely=0.099, relwidth=0.158, relheight=0.106)
-        self.txtPenWidthVar = StringVar(value='0.6')
-        self.txtPenWidth = Entry(self.tabMachine__Tab2, textvariable=self.txtPenWidthVar, font=('宋体',9))
-        self.txtPenWidth.place(relx=0.776, rely=0.298, relwidth=0.18, relheight=0.155)
-        self.style.configure('TlblPenWidth.TLabel', anchor='e', font=('宋体',9))
-        self.lblPenWidth = Label(self.tabMachine__Tab2, text='笔尖直径', style='TlblPenWidth.TLabel')
-        self.lblPenWidth.place(relx=0.576, rely=0.298, relwidth=0.158, relheight=0.106)
-        self.tabMachine.add(self.tabMachine__Tab2, text='控制板参数')
+        self.style.configure('TlblDrillFile.TLabel', anchor='e')
+        self.lblDrillFile = Label(self.top, text='Excellon文件(可选)', style='TlblDrillFile.TLabel')
+        self.lblDrillFile.place(relx=0.011, rely=0.069, relwidth=0.162, relheight=0.029)
 
-        self.style.configure('TfrmStatus.TLabelframe', font=('宋体',9))
-        self.style.configure('TfrmStatus.TLabelframe.Label', font=('宋体',9))
-        self.frmStatus = LabelFrame(self.top, text='', style='TfrmStatus.TLabelframe')
-        self.frmStatus.place(relx=0.011, rely=0.754, relwidth=0.483, relheight=0.105)
+        self.style.configure('TlblQueueCmdNum.TLabel', anchor='w')
+        self.lblQueueCmdNum = Label(self.frmStatus, text='剩余命令：0', style='TlblQueueCmdNum.TLabel')
+        self.lblQueueCmdNum.place(relx=0.066, rely=0.281, relwidth=0.38, relheight=0.439)
 
-        self.style.configure('TcmdSendCommand.TButton', font=('宋体',9))
-        self.cmdSendCommand = Button(self.frmManualCmd, text='执行', command=self.cmdSendCommand_Cmd, style='TcmdSendCommand.TButton')
+        self.style.configure('TlblTimeToFinish.TLabel', anchor='w')
+        self.lblTimeToFinish = Label(self.frmStatus, text='预计剩余时间：00:00:00', style='TlblTimeToFinish.TLabel')
+        self.lblTimeToFinish.place(relx=0.488, rely=0.281, relwidth=0.446, relheight=0.439)
+
+        self.cmdSendCommand = Button(self.frmManualCmd, text='执行', command=self.cmdSendCommand_Cmd)
         self.cmdSendCommand.place(relx=0.842, rely=0.263, relwidth=0.136, relheight=0.456)
 
         self.txtManualCommandVar = StringVar(value='')
@@ -432,18 +419,16 @@ class Application_ui(Frame):
 
         self.cmbKeepLogNumList = ['100','500','1000','2000','3000','4000','5000','8000','10000','20000',]
         self.cmbKeepLogNumVar = StringVar(value='100')
-        self.cmbKeepLogNum = Combobox(self.frmLog, state='readonly', text='100', textvariable=self.cmbKeepLogNumVar, values=self.cmbKeepLogNumList, font=('宋体',9))
+        self.cmbKeepLogNum = Combobox(self.frmLog, state='readonly', text='100', textvariable=self.cmbKeepLogNumVar, values=self.cmbKeepLogNumList)
         self.cmbKeepLogNum.place(relx=0.244, rely=0.875, relwidth=0.269)
 
-        self.style.configure('TcmdSaveLog.TButton', font=('宋体',9))
-        self.cmdSaveLog = Button(self.frmLog, text='保存', command=self.cmdSaveLog_Cmd, style='TcmdSaveLog.TButton')
+        self.cmdSaveLog = Button(self.frmLog, text='保存', command=self.cmdSaveLog_Cmd)
         self.cmdSaveLog.place(relx=0.576, rely=0.875, relwidth=0.18, relheight=0.075)
 
         self.scrVLog = Scrollbar(self.frmLog, orient='vertical')
         self.scrVLog.place(relx=0.909, rely=0.06, relwidth=0.047, relheight=0.728)
 
-        self.style.configure('TcmdClearLog.TButton', font=('宋体',9))
-        self.cmdClearLog = Button(self.frmLog, text='清空', command=self.cmdClearLog_Cmd, style='TcmdClearLog.TButton')
+        self.cmdClearLog = Button(self.frmLog, text='清空', command=self.cmdClearLog_Cmd)
         self.cmdClearLog.place(relx=0.776, rely=0.875, relwidth=0.18, relheight=0.075)
 
         self.lstLogVar = StringVar(value='')
@@ -452,43 +437,33 @@ class Application_ui(Frame):
         self.lstLog.place(relx=0.044, rely=0.06, relwidth=0.867, relheight=0.74)
         self.scrVLog['command'] = self.lstLog.yview
 
-        self.style.configure('TlblKeepLogNum.TLabel', anchor='w', font=('宋体',9))
+        self.style.configure('TlblKeepLogNum.TLabel', anchor='w')
         self.lblKeepLogNum = Label(self.frmLog, text='保留条目', style='TlblKeepLogNum.TLabel')
         self.lblKeepLogNum.place(relx=0.044, rely=0.875, relwidth=0.158, relheight=0.064)
 
-        self.style.configure('TcmdCloseSerial.TButton', font=('宋体',9))
-        self.cmdCloseSerial = Button(self.frmSerial, text='关闭', state='disabled', command=self.cmdCloseSerial_Cmd, style='TcmdCloseSerial.TButton')
+        self.cmdCloseSerial = Button(self.frmSerial, text='关闭', state='disabled', command=self.cmdCloseSerial_Cmd)
         self.cmdCloseSerial.place(relx=0.687, rely=0.539, relwidth=0.202, relheight=0.281)
 
         self.cmbTimeOutList = ['1s x 10','1s x 30','1s x 60','1s x 120','3s x 5','3s x 10','3s x 30','3s x 60',]
         self.cmbTimeOutVar = StringVar(value='1s x 10')
-        self.cmbTimeOut = Combobox(self.frmSerial, state='readonly', text='1s x 10', textvariable=self.cmbTimeOutVar, values=self.cmbTimeOutList, font=('宋体',9))
+        self.cmbTimeOut = Combobox(self.frmSerial, state='readonly', text='1s x 10', textvariable=self.cmbTimeOutVar, values=self.cmbTimeOutList)
         self.cmbTimeOut.place(relx=0.244, rely=0.539, relwidth=0.38)
 
-        self.style.configure('TcmdOpenSerial.TButton', font=('宋体',9))
-        self.cmdOpenSerial = Button(self.frmSerial, text='打开', command=self.cmdOpenSerial_Cmd, style='TcmdOpenSerial.TButton')
+        self.cmdOpenSerial = Button(self.frmSerial, text='打开', command=self.cmdOpenSerial_Cmd)
         self.cmdOpenSerial.place(relx=0.687, rely=0.18, relwidth=0.202, relheight=0.281)
 
         self.cmbSerialList = ['COM1','COM2','COM3','COM4','COM5','COM6','COM6','COM7','COM8','COM9',]
         self.cmbSerialVar = StringVar(value='COM1')
-        self.cmbSerial = Combobox(self.frmSerial, text='COM1', textvariable=self.cmbSerialVar, values=self.cmbSerialList, font=('宋体',9))
+        self.cmbSerial = Combobox(self.frmSerial, text='COM1', textvariable=self.cmbSerialVar, values=self.cmbSerialList)
         self.cmbSerial.place(relx=0.244, rely=0.18, relwidth=0.38)
 
-        self.style.configure('TlblTimeOut.TLabel', anchor='e', font=('宋体',9))
+        self.style.configure('TlblTimeOut.TLabel', anchor='e')
         self.lblTimeOut = Label(self.frmSerial, text='超时时间', style='TlblTimeOut.TLabel')
         self.lblTimeOut.place(relx=0.044, rely=0.539, relwidth=0.158, relheight=0.191)
 
-        self.style.configure('TlblPortNo.TLabel', anchor='e', font=('宋体',9))
+        self.style.configure('TlblPortNo.TLabel', anchor='e')
         self.lblPortNo = Label(self.frmSerial, text='端口号', style='TlblPortNo.TLabel')
         self.lblPortNo.place(relx=0.044, rely=0.18, relwidth=0.158, relheight=0.191)
-
-        self.style.configure('TlblTimeToFinish.TLabel', anchor='w', font=('宋体',9))
-        self.lblTimeToFinish = Label(self.frmStatus, text='预计剩余时间：00:00:00', style='TlblTimeToFinish.TLabel')
-        self.lblTimeToFinish.place(relx=0.488, rely=0.281, relwidth=0.446, relheight=0.439)
-
-        self.style.configure('TlblQueueCmdNum.TLabel', anchor='w', font=('宋体',9))
-        self.lblQueueCmdNum = Label(self.frmStatus, text='剩余命令：0', style='TlblQueueCmdNum.TLabel')
-        self.lblQueueCmdNum.place(relx=0.066, rely=0.281, relwidth=0.38, relheight=0.439)
 
 class Application(Application_ui):
     #这个类实现具体的事件处理回调函数。界面生成代码在Application_ui中。
@@ -629,6 +604,12 @@ class Application(Application_ui):
         self.txtMaxXVar.set('')
         self.txtMinYVar.set('')
         self.txtMaxYVar.set('')
+    
+    def cmdExcellonFile_Cmd(self, event=None):
+        sf = tkFileDialog.askopenfilename(initialfile=self.txtExcellonFileVar.get(), 
+            filetypes=ExcellonFileMask())
+        if sf:
+            self.txtExcellonFileVar.set(sf)
         
     def cmdStart_Cmd(self, event=None):
         #在开始前先设定当前位置为原点
@@ -637,13 +618,15 @@ class Application(Application_ui):
             showinfo('注意啦', '你是不是好像忘了选择输入文件了？')
             return
         
+        drillFile = self.txtExcellonFileVar.get().strip()
+        
         if not self.ser and not self.hasSimulator():
             showinfo('注意啦', '请先打开串口或模拟器！')
             return
             
         if isGerberFile(filename):
             self.cmdPause.focus_set()
-            self.ProcessGerberFile(filename)
+            self.ProcessGerberFile(filename, drillFile)
         else:
             showinfo('小弟不才', '暂不支持此类文件！')
     
@@ -847,7 +830,7 @@ class Application(Application_ui):
             return
             
         self.cnc.UpdateProperties()
-        for cmd in self.cnc.TranslateCmd('x%06dy%06dz2' % (x, y)):
+        for cmd in self.cnc.TranslateCmd(x, y, '2'):
             self.SendCommand(cmd)
         
     #移动至右上角，用于确定打印区域
@@ -860,7 +843,7 @@ class Application(Application_ui):
             return
         
         self.cnc.UpdateProperties()
-        for cmd in self.cnc.TranslateCmd('x%06dy%06dz2' % (x, y)):
+        for cmd in self.cnc.TranslateCmd(x, y, '2'):
             self.SendCommand(cmd)
         
     #移动至左下角，用于确定打印区域
@@ -873,7 +856,7 @@ class Application(Application_ui):
             return
         
         self.cnc.UpdateProperties()
-        for cmd in self.cnc.TranslateCmd('x%06dy%06dz2' % (x, y)):
+        for cmd in self.cnc.TranslateCmd(x, y, '2'):
             self.SendCommand(cmd)
     
     #移动至右上角，用于确定打印区域
@@ -886,7 +869,7 @@ class Application(Application_ui):
             return
         
         self.cnc.UpdateProperties()
-        for cmd in self.cnc.TranslateCmd('x%06dy%06dz2' % (x, y)):
+        for cmd in self.cnc.TranslateCmd(x, y, '2'):
             self.SendCommand(cmd)
     
     #将命令压到队列中以供另一个线程取用，出错返回False
@@ -910,14 +893,13 @@ class Application(Application_ui):
                 showinfo('注意啦', '请先打开串口然后再执行命令。')
                 return False
         else: #有模拟器
-            if cmd != END_CMD:
-                response = self.simulator.putDrawCmd(cmd, penWidth)
-                self.AddCommandLog(cmd + b' -> sim')
-                self.lstLog.update_idletasks()
-                if response != b'*':
-                    if not askyesno('命令出错', '模拟器返回命令出错标识，是否继续下发其他命令？'):
-                        return False
-            
+            response = self.simulator.putDrawCmd(cmd, penWidth)
+            self.AddCommandLog(cmd + b' -> sim')
+            self.lstLog.update_idletasks()
+            if response != b'*':
+                if not askyesno('命令出错', '模拟器返回命令出错标识，是否继续下发其他命令？'):
+                    return False
+        
         return True
         
     def AddCommandLog(self, cmd, isResponse=False, forceUpdateNum=0):
@@ -984,7 +966,7 @@ class Application(Application_ui):
             self.txtMinHoleVar.set('0.8')
             minHole = 0.8
         
-        for line in lines[:100]: #在前面100行获取元信息，一般足够了
+        for line in lines[:200]: #在前面200行获取元信息，一般足够了
             if line.startswith('G04'): #注释行
                 continue
                 
@@ -1014,17 +996,23 @@ class Application(Application_ui):
         
         #预处理文件内容，将绘图行转换为单位为微米的浮点数元祖，以便后续处理
         #并且如果需要，则经过数学处理去掉负数坐标和平移图案
-        minX, maxX, minY, maxY = self.PreProcess(lines, gerberInfo)
+        minX, maxX, minY, maxY, xShifted, yShifted = self.PreProcess(lines, gerberInfo)
         dictRet['lines'] = lines
         dictRet['minX'] = minX
         dictRet['maxX'] = maxX
         dictRet['minY'] = minY
         dictRet['maxY'] = maxY
+        dictRet['xShifted'] = xShifted
+        dictRet['yShifted'] = yShifted
         return dictRet
         
     #分析Gerber文件，将其中的绘图命令转换成CNC合法的命令发送
-    def ProcessGerberFile(self, filename):
+    def ProcessGerberFile(self, filename, drillFile):
+        #预处理文件，提取元信息和进行单位转换
         gerber = self.ParseGerberFile(filename)
+        
+        #再遍历一次文件，提取所有的钻孔信息，保存到一个列表中
+        holes = self.GatherHoles(gerber, drillFile)
         
         if self.evExit.is_set() or gerber is None:
             return
@@ -1032,12 +1020,9 @@ class Application(Application_ui):
         self.evStop.clear()
         self.evPause.clear()
         self.cmdPause['text'] = '暂停(P)'
-        while (True): #清空队列
-            try:
-                tmp = self.cmdQueue.get_nowait()
-            except Exception as e:
-                break
-            
+        #清空队列
+        self.cmdQueue.queue.clear()
+        
         #获取笔尖宽度，界面上的单位是毫米，软件需要转换为微米
         try:
             penWidth = float(self.txtPenWidthVar.get()) * 1000.0
@@ -1048,7 +1033,7 @@ class Application(Application_ui):
         
         #开始逐行处理文件
         grblApt = re.compile(r'^.*?D(\d+?)\*') #aperture切换行
-        x = y = prevX = prevY = 0.0
+        x = y = prevX = prevY = prevX4Holes = prevY4Holes = 0.0
         regionModeOn = False
         curAperture = defAperture = Aperture() #新建一个默认大小的Aperture
         lines = gerber['lines']
@@ -1056,7 +1041,8 @@ class Application(Application_ui):
         self.cnc.UpdateProperties() #将界面参数更新到cnc属性
         self.cmdApplyAxisSpeed_Cmd() #更新控制板的各轴速度
         self.cnc.Reset(x=True, y=True) #设定当前点为原点
-        if self.hasSimulator(): #模拟器使用
+        
+        if self.hasSimulator(): #使用模拟器
             self.simulator.Reset(x=True, y=True)
             self.simulator.UpdateProperties()
         
@@ -1065,41 +1051,62 @@ class Application(Application_ui):
                 return
             
             if type(line) is tuple: #坐标行
-                x, y, z = line
+                xInFile, yInFile, zInFile = line
                 
                 #如果需要，可能需要画多根细线组成粗线
                 #返回一个元组列表[(x1,y1,z1),(x2,y2,z2),...]
-                if z == '2': #直接移动绘图笔的命令
-                    lines2draw = [(x, y, z)]
+                if zInFile == '2': #直接移动绘图笔的命令
+                    lines2draw = [(xInFile, yInFile, zInFile)]
                 elif regionModeOn:
                     if self.chkOmitRegionCmdVar.get():
                         continue #如果设置忽略区域命令，则区域模式打开后跳过所有中间的绘图命令
                     else: #区域模式打开后线条宽度为0
-                        lines2draw = defAperture.Render(prevX, prevY, x, y, z, penWidth)
-                elif curAperture:
-                    lines2draw = curAperture.Render(prevX, prevY, x, y, z, penWidth)
+                        lines2draw = defAperture.Render(prevX, prevY, xInFile, yInFile, zInFile, penWidth)
                 else:
-                    showinfo('出错啦', 'Gerber文件有错，还没有设置Aperture就开始绘图了[第 %d 行]！' % lineNo)
-                    return
+                    if not curAperture:
+                        curAperture = defAperture
+                    lines2draw = curAperture.Render(prevX, prevY, xInFile, yInFile, zInFile, penWidth)
                     
                 for x, y, z in lines2draw:
+                    #绘图指令用直线逼近斜线精度为0.1mm，移动时1mm足够，再大还是可以
+                    splitThreshold = 100 if z == '1' else 1000
+                    
                     #一条斜线，雕刻机不支持直接画斜线，要用一系列的横线竖线逼近
-                    if (z == '1') and (x != prevX) and (y != prevY):
-                        for point in self.SplitInclined(prevX, prevY, x, y):
-                            out = 'x%06.0fy%06.0fz%s' % (point[0], point[1], z)
-                            for cmd in self.cnc.TranslateCmd(out):
+                    if (x != prevX) and (y != prevY):
+                        #第一步：斜线转成直线集合
+                        for point in self.SplitInclined(prevX, prevY, x, y, splitThreshold):
+                            if zInFile == '1':
+                                #第二步：如果直线遇到钻孔，则跳过孔位
+                                for out in self.KeepAwayFromHoles(holes, prevX4Holes, prevY4Holes, 
+                                                    point[0], point[1], z, penWidth):
+                                    #第三步：转换成雕刻机步进电机运行指令
+                                    for cmd in self.cnc.TranslateCmd(out[0], out[1], out[2]):
+                                        ret = self.SendCommand(cmd, penWidth)
+                                        if not ret:
+                                            return
+                                prevX4Holes = point[0]
+                                prevY4Holes = point[1]                                
+                            else: # '2' or '3'，不用管钻孔的事
+                                for cmd in self.cnc.TranslateCmd(point[0], point[1], z):
+                                    ret = self.SendCommand(cmd, penWidth)
+                                    if not ret:
+                                        return
+                    else:
+                        if zInFile == '1':
+                            #跳过钻孔区域
+                            for out in self.KeepAwayFromHoles(holes, prevX4Holes, prevY4Holes, x, y, z, penWidth):
+                                for cmd in self.cnc.TranslateCmd(out[0], out[1], out[2]):
+                                    ret = self.SendCommand(cmd, penWidth)
+                                    if not ret:
+                                        return
+                        else: # 2 or 3
+                            for cmd in self.cnc.TranslateCmd(x, y, z):
                                 ret = self.SendCommand(cmd, penWidth)
                                 if not ret:
                                     return
-                    else:
-                        out = 'x%06.0fy%06.0fz%s' % (x, y, z)
-                        for cmd in self.cnc.TranslateCmd(out):
-                            ret = self.SendCommand(cmd, penWidth)
-                            if not ret:
-                                return
-                    
-                    prevX = x
-                    prevY = y
+                                
+                    prevX = prevX4Holes = x
+                    prevY = prevY4Holes = y
             elif not line.startswith('G04'): #跳过注释行
                 mat = grblApt.match(line)
                 if mat: #aperture切换行
@@ -1119,19 +1126,19 @@ class Application(Application_ui):
                             #一条斜线，雕刻机不支持直接画斜线，要用一系列的横线竖线逼近
                             if (z == '1') and (x != prevX) and (y != prevY):
                                 for point in self.SplitInclined(prevX, prevY, x, y):
-                                    out = 'x%06.0fy%06.0fz%s' % (point[0], point[1], z)
-                                    for cmd in self.cnc.TranslateCmd(out):
+                                    
+                                    for cmd in self.cnc.TranslateCmd(point[0], point[1], z):
                                         ret = self.SendCommand(cmd, penWidth)
                                         if not ret:
                                             return
                             else:
-                                out = 'x%06.0fy%06.0fz%s' % (x, y, z)
-                                for cmd in self.cnc.TranslateCmd(out):
+                                
+                                for cmd in self.cnc.TranslateCmd(x, y, z):
                                     ret = self.SendCommand(cmd, penWidth)
                                     if not ret:
                                         return
-                            prevX = x
-                            prevY = y
+                            prevX = prevX4Holes = x
+                            prevY = prevY4Holes = y
                         
                     elif aptNum >= 10: #切换当前的aperture    
                         aptName = 'D%d' % aptNum
@@ -1141,25 +1148,150 @@ class Application(Application_ui):
                 elif 'G37*' in line: #区域模式关闭
                     regionModeOn = False
         
-        #归位
-        for cmd in self.cnc.TranslateCmd('x000000y000000z2'):
-            self.SendCommand(cmd, penWidth)
+        #归位，为了更快，也走斜线路径回零位，逼近精度为1000(1mm)
+        if (prevX != 0.0) and (prevY != 0.0):
+            for point in self.SplitInclined(prevX, prevY, 0.0, 0.0, 1000):
+                for cmd in self.cnc.TranslateCmd(point[0], point[1], '2'):
+                    self.SendCommand(cmd, penWidth)
+        else:
+            for cmd in self.cnc.TranslateCmd(0.0, 0.0, '2'):
+                self.SendCommand(cmd, penWidth)
         
         #用于最后响铃提醒用
         self.SendCommand(END_CMD, None)
+    
+    #判断此直线是否经过了焊盘钻孔区域，如果是，则适当处理跳过之，返回一个(x,y,z)列表
+    def KeepAwayFromHoles(self, holes, x1, y1, x2, y2, z, penWidth):
+        #return [(x2, y2, z)]
+        if z != '1': #不是绘图指令
+            return [(x2, y2, z)]
+        elif x1 == x2 and y1 == y2:
+            return [(x2, y2, z)]
+            
+        xLeft = min(x1, x2)
+        xRight = max(x1, x2)
+        yTop = min(y1, y2)
+        yBottom = max(y1, y2)
         
+        #开始时仅一条直线，如果碰到焊孔，则可能会拆分成几条直线
+        res = [(xLeft, yTop, xRight, yBottom)]
+        
+        penHalf = penWidth / 2
+        
+        prevX = prevY = 0
+        conflited = True
+        
+        #因为都是垂直线或水平线，所以比较好处理，而且为了更简化，将圆孔当做方孔处理
+        if y1 == y2: #水平线
+            while 1:
+                conflited = False
+                for idx, (x_1, y_1, x_2, y_2) in enumerate(res):
+                    for xHole, yHole, diaHole in holes: #x,y,diameter
+                        radius = diaHole / 2
+                        #判断直线是否经过此孔
+                        if y_1 - penHalf - radius <= yHole <= y_1 + penHalf + radius:
+                            if (abs(xHole - x_1) <= radius + penHalf) and (abs(x_2 - xHole) <= radius + penHalf): #线全部在焊孔内
+                                conflited = True #直接丢弃此线
+                                break
+                            elif x_1 - penHalf - radius < xHole <= x_1 + penHalf + radius: #左端重叠，左端截短
+                                res.append((xHole + radius + penHalf, y_1, x_2, y_2))
+                                conflited = True
+                                break
+                            elif x_2 - penHalf - radius <= xHole < x_2 + penHalf + radius: #右端重叠
+                                res.append((x_1, y_1, xHole - radius - penHalf, y_2))
+                                conflited = True
+                                break
+                            elif x_1 + penHalf + radius < xHole < x_2 - penHalf - radius: #在中间
+                                res.append((x_1, y_1, xHole - radius - penHalf, y_2))
+                                res.append((xHole + radius + penHalf, y_1, x_2, y_2))
+                                conflited = True
+                                break
+                            
+                    #对应的一根线和某个过孔冲突
+                    if conflited:
+                        res.pop(idx) #去掉有冲突的那根线
+                        break #从头开始重新搜索
+                
+                #找完了，没有冲突
+                if not conflited:
+                    break
+        else: #垂直线
+            while 1:
+                conflited = False
+                for idx, (x_1, y_1, x_2, y_2) in enumerate(res):
+                    for xHole, yHole, diaHole in holes: #x,y,diameter
+                        radius = diaHole / 2
+                        #判断直线是否经过此孔
+                        if x_1 - penHalf - radius <= xHole <= x_1 + penHalf + radius:
+                            if (abs(yHole - y_1) <= radius + penHalf) and (abs(y_2 - yHole) <= radius + penHalf): #线全部在焊孔内
+                                conflited = True #直接丢弃此线
+                                break
+                            elif y_1 - penHalf - radius < yHole <= y_1 + penHalf + radius: #上端重叠，上端截短
+                                res.append((x_1, yHole + radius + penHalf, x_2, y_2))
+                                conflited = True
+                                break
+                            elif y_2 - penHalf - radius <= yHole < y_2 + penHalf + radius: #下端重叠
+                                res.append((x_1, y_1, x_2, yHole - radius - penHalf))
+                                conflited = True
+                                break
+                            elif y_1 + penHalf + radius < yHole < y_2 - penHalf - radius: #在中间
+                                res.append((x_1, y_1, x_1, yHole - radius - penHalf))
+                                res.append((x_1, yHole + radius + penHalf, x_1, y_2))
+                                conflited = True
+                                break
+                            
+                    #对应的一根线和某个过孔冲突
+                    if conflited:
+                        res.pop(idx) #去掉有冲突的那根线
+                        break #从头开始重新搜索
+                
+                #找完了，没有冲突
+                if not conflited:
+                    break
+        
+        #根据原来的方向进行线段排序
+        if y1 == y2: #水平线
+            if x1 < x2: #从左至右
+                resSorted = sorted(res, key=itemgetter(0))
+            else: #从右至左
+                resTmp = []
+                for x_1, y_1, x_2, y_2 in res:
+                    resTmp.append((x_2, y_2, x_1, y_1))
+                resSorted = sorted(resTmp, key=itemgetter(0), reverse=True)
+        else: #垂直线
+            if y1 < y2: #从上到下
+                resSorted = sorted(res, key=itemgetter(1))
+            else:
+                resTmp = []
+                for x_1, y_1, x_2, y_2 in res:
+                    resTmp.append((x_1, y_2, x_2, y_1))
+                resSorted = sorted(resTmp, key=itemgetter(1), reverse=True)
+        
+        #开始输出一个逐点列表
+        res = []
+        prevX = x1
+        prevY = y1
+        for x_1, y_1, x_2, y_2 in resSorted:
+            if x_1 != prevX or y_1 != prevY:
+                res.append((x_1, y_1, '2'))
+            res.append((x_2, y_2, '1'))
+            prevX = x_2
+            prevY = y_2
+        
+        if prevX != x2 or prevY != y2:
+            res.append((x2, y2, '2'))
+        
+        return res
+    
     #将RS274X坐标字符串格式的xy转换成浮点型（单位为微米），支持正负数，返回转换后的(x,y)元组
     def XY2Float(self, x, y, gerberInfo):
-        xIsNegative = False
-        yIsNegative = False
-        
         #先去零
         #if (gerberInfo['zeroSuppress'] == 'L'): #忽略前导零
         #    x = x.lstrip('0 ')
         #    y = y.lstrip('0 ')
-        if (gerberInfo['zeroSuppress'] == 'T'): #忽略后导零
-            x = x.rstrip('0 ')
-            y = y.rstrip('0 ')
+        #if (gerberInfo['zeroSuppress'] == 'T'): #忽略后导零
+        #    x = x.rstrip('0 ')
+        #    y = y.rstrip('0 ')
         
         try:
             x = int(x)
@@ -1171,20 +1303,25 @@ class Application(Application_ui):
         x /= pow(10, gerberInfo['xDecimal'])
         y /= pow(10, gerberInfo['yDecimal'])
         
-        #转换成微米
+        #将坐标数值统一转换成微米
         if gerberInfo['unit'] == 'inch':
             x = float(x) * 25.4 * 1000
             y = float(y) * 25.4 * 1000
         else: #mm
             x = float(x) * 1000
             y = float(y) * 1000
-        
+            
+        #一个容错吧，控制板最长支持6位数(999 mm)
+        if x > 999999.0:
+            x = 999999.0
+        if y > 999999.0:
+            y = 999999.0
+            
         return (x, y)
         
     
-    #因为PIC控制板不支持负的坐标，为此，预处理文件，如果文件中有负坐标，
-    #则所有坐标都加上一个最小的负数，把所有坐标都变成正数
-    #即使没有负数，如果有太小的值，也可以考虑加上一个固定的值，避免运算过程中出现负数
+    #预处理文件，如果文件中有负坐标，则所有坐标都加上一个最小的负数，把所有坐标都变成正数
+    #即使没有负数，如果有太小的值，也可以考虑加上一个固定的值，避免后续运算过程中出现负数
     #经过预处理后的文件行列表直接在lines中返回，同时函数返回最大最小值（可以用于定框）
     def PreProcess(self, lines, gerberInfo):
         minX = minY = maxX = maxY = 0.0
@@ -1201,17 +1338,18 @@ class Application(Application_ui):
                 continue
                 
             mat = grblExp.match(line)
-            if mat: #坐标绘图行
+            if mat: #当前行为坐标绘图行，则转换为浮点数，方便后续分析处理
                 x, y = self.XY2Float(mat.group(1), mat.group(2), gerberInfo)
                 z = mat.group(3)
                 
                 if x is None or y is None:
                     continue
                     
-                #平移整个图案
+                #如果需要，整个图案平移
                 x += self.shiftX
                 y += self.shiftY
                 
+                #更新最大最小值，后续用于定框
                 if firstLine:
                     minX = maxX = x
                     minY = maxY = y
@@ -1230,23 +1368,147 @@ class Application(Application_ui):
             else:
                 linesNum.append(line)
         
-        
         #进行第二遍处理，为了避免画粗线或焊盘时越限，可允许的最小值有限制
         minXforCal = self.allowedMinX - minX if minX < self.allowedMinX else 0.0
         minYforCal = self.allowedMinY - minY if minY < self.allowedMinY else 0.0
         
         for idx, line in enumerate(linesNum):
-            if type(line) is tuple: #坐标行，则将坐标转换为不小于3mm的正浮点数
+            if type(line) is tuple: #坐标行
                 lines[idx] = (line[0] + minXforCal, line[1] + minYforCal, line[2])
             else:
                 lines[idx] = line
+        
+        #minX, maxX, minY, maxY, xShifted, yShifted
+        return (minX + minXforCal, maxX + minXforCal, minY + minYforCal, maxY + minYforCal,
+            self.shiftX + minXforCal, self.shiftY + minYforCal)
+        
+    #分析Gerber文件，提取里面的焊盘钻孔信息(x, y，直径)，为了简化，所有的钻孔都当做圆孔处理
+    #考虑钻孔信息分布的复杂性，要模拟走一遍才能全部提取到所有信息
+    def GatherHoles(self, gerber, drillFile):
+        if self.evExit.is_set() or gerber is None:
+            return
+        
+        #开始逐行处理文件
+        grblApt = re.compile(r'^.*?D(\d+?)\*') #aperture切换行
+        x = y = 0.0
+        curAperture = defAperture = Aperture() #新建一个默认大小的Aperture
+        lines = gerber['lines']
+        holes = [] #(x, y, 直径) 单位为微米
+        
+        for lineNo, line in enumerate(lines, 1):
+            if self.evExit.is_set():
+                return
+            
+            if type(line) is tuple: #坐标行
+                x, y, z = line
+                if z == '3' and curAperture and curAperture.innerEdge1 > 0.0: #有钻孔的焊盘
+                    holes.append((x, y, curAperture.innerEdge1))
+                    
+            elif not line.startswith('G04'): #跳过注释行
+                mat = grblApt.match(line)
+                if mat: #aperture切换行
+                    try:
+                        aptNum = int(mat.group(1))
+                    except:
+                        showinfo('出错啦', '解读文件时出现aperture编号出错的情况 [第 %d 行]！' % lineNo)
+                        return
+                    
+                    if aptNum == 3: #在当前点绘aperture命令
+                        if not curAperture:
+                            showinfo('出错啦', '没有设置aperture就开始绘图！ [第 %d 行]！' % lineNo)
+                            continue #忽略好了，不用退出
+                        elif curAperture.innerEdge1 > 0.0:
+                            holes.append((x, y, curAperture.innerEdge1))
+                            
+                    elif aptNum >= 10: #切换当前的aperture    
+                        aptName = 'D%d' % aptNum
+                        curAperture = gerber['header']['apertures'].get(aptName, defAperture)
+        
+        #如果额外的提供了钻孔文件，则将钻孔文件的数据合入
+        if drillFile:
+            try:
+                with open(drillFile, 'r') as fd:
+                    drillLines = [line.strip() for line in fd.read().split('\n')]
+            except Exception as e:
+                showinfo('出错啦', '无法打开钻孔文件，软件将忽略此错误，此文件中的数据将无效。\n%s' % str(e))
+                return holes
+            
+            unit = 'INCH'
+            tools = {} #钻头信息表
+            curDiameter = 0.0
+            xShifted = gerber['xShifted']
+            yShifted = gerber['yShifted']
+            toolDefineExpr = re.compile(r'^T(\d{1,4}).*?C([.0-9]+).*')
+            toolChooseExpr = re.compile(r'^T(\d{1,2})')
+            holeExpr = re.compile(r'^X(\d+)Y(\d+)')
+            for line in drillLines:
+                if not line or line.startswith(';'):
+                    continue
+                if line in ('INCH', 'METRIC'):
+                    unit = line
+                    continue
+                    
+                mat = toolDefineExpr.match(line)
+                if mat: #tool定义行
+                    toolNum = mat.group(1)
+                    if len(toolNum) > 2: #后面两位是补偿量，忽略
+                        toolNum = toolNum[:2]
+                    toolDia = mat.group(2)
+                    try:
+                        toolDia = float(toolDia if toolDia[0] != '.' else '0' + toolDia)
+                    except:
+                        continue
+                    #转换成微米
+                    if unit == 'INCH':
+                        toolDia = toolDia * 25.4 * 1000
+                    else:
+                        toolDia = toolDia * 1000
+                        
+                    tools[toolNum] = toolDia
+                    continue
                 
-        return (minX + minXforCal, maxX + minXforCal, minY + minYforCal, maxY + minYforCal)
+                mat = toolChooseExpr.match(line)
+                if mat: #钻头选择行
+                    curDiameter = tools.get(str(mat.group(1)), 0.0)
+                    continue
+                
+                mat = holeExpr.match(line)
+                if mat: #钻孔信息行
+                    x = mat.group(1)
+                    y = mat.group(2)
+                    
+                    #转换为微米
+                    try:
+                        if unit == 'INCH': #00.0000格式
+                            x = float(x) / 10000 * 25.4 * 1000
+                            y = float(y) / 10000 * 25.4 * 1000
+                        else:
+                            if len(x) == 5: #000.00格式
+                                x = float(x) / 100 * 1000
+                            else: #有两种格式：0000.00，000.000，仅使用3.3格式
+                                x = float(x)
+                            if len(y) == 5:
+                                y = float(y) / 100 * 1000
+                            else:
+                                y = float(y)
+                    except:
+                        continue
+                    
+                    #如果图案已经整体平移了，则也要同步修正钻孔位置
+                    x += xShifted
+                    y += yShifted
+                    
+                    if curDiameter > 0.0:
+                        holes.append((x, y, curDiameter))
+                        #print('Add hole : (%.0f, %.0f, %.0f)' % (x, y, curDiameter))
+                    
+        return holes
         
     #将斜线分解转换成很多段的水平线和垂直线序列，因为雕刻机仅支持画水平线或垂直线
     #函数直接返回一个元祖列表[(x1,y1),(x2,y2),...]
     #参数坐标单位为微米，(x1,y1)为起始点，(x2,y2)为结束点
-    def SplitInclined(self, x1, y1, x2, y2):
+    #threshold为逼近的门限值，单位为微米
+    def SplitInclined(self, x1, y1, x2, y2, threshold=100):
         if x1 == x2 or y1 == y2:
             return [(x2,y2)]
         
@@ -1254,21 +1516,22 @@ class Application(Application_ui):
         y_half = abs(y1 - y2) / 2
         xm = min(x1, x2) + x_half
         ym = min(y1, y2) + y_half
-        if (x_half < 100) or (y_half < 100): #逼近的精度取100微米即可，够平滑了，太多了也没必要
+        if (x_half < threshold) or (y_half < threshold): #低于门限，直接返回
             if (x_half < y_half): #根据斜率决定先向哪个方向逼近
                 return [(x1,ym),(x2,ym),(x2,y2)]
             else:
                 return [(xm,y1),(xm,y2),(x2,y2)]
         else: #递归二分法逼近
-            return self.SplitInclined(x1, y1, xm, ym) + self.SplitInclined(xm, ym, x2, y2)
+            return self.SplitInclined(x1, y1, xm, ym, threshold) + self.SplitInclined(xm, ym, x2, y2, threshold)
         
     #单独的一个线程，在队列中取命令，然后发送给CNC控制板，并且等待控制板的答复
     def threadSendCommand(self, evStop, evExit, evPause, cmdQueue):
         #时间单位为毫秒
-        timeToFinish = timeForLast100 = avgForLast100 = sumedCmdNum = 0
+        timeToFinish = timeInLastCmds = avgForLastCmds = sumedCmdNum = 0
         cmdStartTime = cmdEndTime = None
         remainedCmd = 0
         forceUpdateNum = 10
+        accuCmdNumForCalculate = 500 #统计过去500个命令用于预计剩下的时间
         
         while (True):
             if evExit.is_set():
@@ -1352,26 +1615,24 @@ class Application(Application_ui):
                 if not ignore:
                     evStop.set()
                     
-            #确定此命令的执行时间，统计最近100个命令的执行时间，用于预计剩余时间
+            #确定此命令的执行时间，统计最近若干个命令的执行时间，用于预计剩余时间
             cmdEndTime = datetime.datetime.now()
             delta = cmdEndTime - cmdStartTime
             delta = delta.seconds * 1000 + delta.microseconds / 1000 #转换成毫秒
-            if sumedCmdNum < 100:
-                timeForLast100 += delta
+            timeInLastCmds += delta
+            if sumedCmdNum < accuCmdNumForCalculate:
                 sumedCmdNum += 1
+                avgForLastCmds = timeInLastCmds / sumedCmdNum
                 self.lblTimeToFinish['text'] = '预计剩余时间：00:00:00'
             else:
-                if avgForLast100 == 0:
-                    avgForLast100 = timeForLast100 / 100
+                timeInLastCmds = timeInLastCmds - avgForLastCmds #扣除平均值（近似前第501个数据）
+                avgForLastCmds = timeInLastCmds / accuCmdNumForCalculate
+                timeToFinish = avgForLastCmds * remainedCmd
                 
-                timeForLast100 = timeForLast100 + delta - avgForLast100
-                avgForLast100 = timeForLast100 / 100
-                timeToFinish = avgForLast100 * remainedCmd
-                
-                #毫秒转换为 小时:分钟:秒 格式
+                #毫秒转换为 ‘小时:分钟:秒’ 格式
                 hours = int(timeToFinish / 3600000)
                 odd = int(timeToFinish % 3600000)
-                minutes = int(odd / 60000) 
+                minutes = int(odd / 60000)
                 seconds = int(int((odd % 60000) / 1000) / 10) * 10 #圆整为10整数倍，避免界面刷新太多
                 
                 self.lblTimeToFinish['text'] = '预计剩余时间：%02d:%02d:%02d' % (hours, minutes, seconds)
@@ -1423,7 +1684,7 @@ class Application(Application_ui):
             self.simulatorWidth = self.simulator.simulatorWidth() #取巧的数据同步而已
             return True
             
-#一个CNC对象类，将控制板的部分功能转移到上位机中实现，包括单位转换和软件回差处理
+#一个CNC对象类，将控制板V1的部分功能转移到上位机中实现，包括单位转换和软件回差处理
 class CncMachine:
     def __init__(self, app):
         self.app = app
@@ -1546,18 +1807,10 @@ class CncMachine:
             return ''
         
     #将主应用程序生成的绝对微米坐标转换为雕刻机认识的按步进运行的命令
-    #cmd为bytes或str，返回是一个命令列表
-    def TranslateCmd(self, cmd):
-        #命令格式 x000000y000000z1 or x000000y000000z2
-        if type(cmd) is bytes:
-            cmd = cmd.decode()
-        
-        #print(cmd)
-        
+    #返回是一个命令列表
+    def TranslateCmd(self, x, y, z):
         res = []
-        x = int(cmd[1:7]) #单位为微米
-        y = int(cmd[8:14])
-        z = cmd[15]
+        
         if z == '1' and self.zPrevPos == '2':
             res.append(self.DownZCmd())
         elif z == '2' and self.zPrevPos == '1':
