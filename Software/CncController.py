@@ -57,6 +57,7 @@ except ImportError:
 from operator import itemgetter
 from threading import Thread, Event
 import serial
+from serial.tools import list_ports
 
 CFG_FILE = 'CncController.ini'
 ANGLE_PER_SIDE = 0.017453293 * 10 #用多边形逼近圆形时的步进角度，值越小越圆，但数据量越大
@@ -470,7 +471,23 @@ class Application(Application_ui):
     def __init__(self, master=None):
         Application_ui.__init__(self, master)
         self.master.title('PrinterCnc Controller %s - https://github.com/cdhigh' % __Version__)
-        self.cmbSerial.current(0)
+        #将计算机的串口列出来
+        srls = []
+        for srl in list_ports.comports():
+            try:
+                if sys.version_info[0] == 2:
+                    srlDesc = srl[1].decode('gbk')
+                else:
+                    srlDesc = srl[1].encode('gbk').decode('utf-8')
+                srls.append('%s [%s]' % (srl[0], srlDesc))
+            except:
+                srls.append('%s' % srl[0])
+        if srls:
+            srls.sort()
+            self.cmbSerialList = srls
+            self.cmbSerial['values'] = self.cmbSerialList
+        if self.cmbSerialList:
+            self.cmbSerial.current(0)
         self.cmbTimeOut.current(3)
         self.cmbTimeOutVar.set('1s x 120')
         self.cmbKeepLogNum.current(1)
@@ -703,7 +720,7 @@ class Application(Application_ui):
             self.serTimeoutCnt = 10
         
         try:
-            self.ser = serial.Serial(self.cmbSerialVar.get(), 9600, timeout=self.serTimeout)
+            self.ser = serial.Serial(self.cmbSerialVar.get().split()[0], 9600, timeout=self.serTimeout)
         except Exception as e:
             showerror('出错啦', str(e))
             self.ser = None
@@ -2701,7 +2718,7 @@ class Aperture:
             xFill += fillStep
             
         return res
-        
+               
 #发出声音提醒
 def SoundNotify(single=True):
     if winsound:
