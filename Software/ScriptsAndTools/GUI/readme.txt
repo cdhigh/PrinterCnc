@@ -1,1 +1,3 @@
-�����VisualTkinter����������λ��GUI�����VB�����ļ��͹����ļ���������VB6�򿪡�
+﻿这个是VisualTkinter用来生成上位机GUI界面的VB窗体文件和工程文件，可以用VB6打开。
+在github上重新取下来后有可能需要转换为DOS格式回车换行才可以用VB重新打开。
+如果加载错误，还有可能是MSCOMCTL.OCX的版本号和此工程需要的版本号不一致，可以通过修改文件中的版本号解决。

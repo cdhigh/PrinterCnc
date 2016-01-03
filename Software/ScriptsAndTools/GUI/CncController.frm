@@ -1,21 +1,36 @@
 VERSION 5.00
-Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.1#0"; "MSCOMCTL.OCX"
+Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "mscomctl.ocx"
 Begin VB.Form frmMain 
    Caption         =   "PrinterCnc Controller - <https://github.com/cdhigh>"
-   ClientHeight    =   8115
+   ClientHeight    =   8760
    ClientLeft      =   120
    ClientTop       =   510
-   ClientWidth     =   11205
+   ClientWidth     =   11220
    LinkTopic       =   "Form1"
-   ScaleHeight     =   8115
-   ScaleWidth      =   11205
+   ScaleHeight     =   8760
+   ScaleWidth      =   11220
    StartUpPosition =   2  '∆¡ƒª÷––ƒ
-   Tag             =   "p@protocol=WM_DELETE_WINDOW"
+   Tag             =   "p@protocol=WM_DELETE_WINDOW@icon=app_icon.gif"
+   Begin VB.TextBox txtExcellonFile 
+      Height          =   375
+      Left            =   1920
+      TabIndex        =   92
+      Top             =   600
+      Width           =   8415
+   End
+   Begin VB.CommandButton cmdExcellonFile 
+      Caption         =   "..."
+      Height          =   375
+      Left            =   10440
+      TabIndex        =   91
+      Top             =   600
+      Width           =   615
+   End
    Begin VB.Frame frmStatus 
-      Height          =   855
+      Height          =   975
       Left            =   120
       TabIndex        =   87
-      Top             =   6120
+      Top             =   6720
       Width           =   5415
       Begin VB.Label lblQueueCmdNum 
          Caption         =   " £”‡√¸¡Ó£∫0"
@@ -38,7 +53,7 @@ Begin VB.Form frmMain
       Height          =   2655
       Left            =   120
       TabIndex        =   86
-      Top             =   600
+      Top             =   1200
       Width           =   5415
       _ExtentX        =   9551
       _ExtentY        =   4683
@@ -55,7 +70,7 @@ Begin VB.Form frmMain
       Height          =   2415
       Left            =   5880
       TabIndex        =   73
-      Top             =   8280
+      Top             =   8760
       Width           =   5415
       Begin VB.TextBox txtPenWidth 
          Height          =   375
@@ -165,7 +180,7 @@ Begin VB.Form frmMain
       Height          =   2415
       Left            =   240
       TabIndex        =   59
-      Top             =   8280
+      Top             =   8760
       Width           =   5415
       Begin VB.CommandButton cmdApplyAxisSpeed 
          Caption         =   "”¶”√"
@@ -285,6 +300,15 @@ Begin VB.Form frmMain
       TabIndex        =   54
       Top             =   5280
       Width           =   5415
+      Begin VB.CheckBox chkSortCommands 
+         Caption         =   "≈≈–ÚªÊÕº√¸¡Ó"
+         Height          =   255
+         Left            =   360
+         TabIndex        =   90
+         Top             =   1320
+         Value           =   1  'Checked
+         Width           =   2055
+      End
       Begin VB.CheckBox chkOmitRegionCmd 
          Caption         =   "∫ˆ¬‘«¯”ÚªÊÕº√¸¡Ó"
          Height          =   255
@@ -562,7 +586,7 @@ Begin VB.Form frmMain
       Height          =   2655
       Left            =   120
       TabIndex        =   24
-      Top             =   3360
+      Top             =   3960
       Width           =   5415
       _ExtentX        =   9551
       _ExtentY        =   4683
@@ -582,7 +606,7 @@ Begin VB.Form frmMain
       Height          =   615
       Left            =   360
       TabIndex        =   12
-      Top             =   7320
+      Top             =   7920
       Width           =   1815
    End
    Begin VB.CommandButton cmdPause 
@@ -590,7 +614,7 @@ Begin VB.Form frmMain
       Height          =   615
       Left            =   6120
       TabIndex        =   15
-      Top             =   7320
+      Top             =   7920
       Width           =   1815
    End
    Begin VB.CommandButton cmdStop 
@@ -599,19 +623,19 @@ Begin VB.Form frmMain
       Left            =   9000
       TabIndex        =   16
       Tag             =   "p@bg"
-      Top             =   7320
+      Top             =   7920
       Width           =   1815
    End
    Begin VB.Frame frmManualCmd 
       Caption         =   " ÷∂Ø÷¥––√¸¡Ó"
-      Height          =   855
+      Height          =   975
       Left            =   5640
       TabIndex        =   10
-      Top             =   6120
+      Top             =   6720
       Width           =   5415
       Begin VB.CommandButton cmdSendCommand 
          Caption         =   "÷¥––"
-         Height          =   390
+         Height          =   510
          Left            =   4560
          TabIndex        =   13
          Top             =   225
@@ -627,7 +651,7 @@ Begin VB.Form frmMain
             Italic          =   0   'False
             Strikethrough   =   0   'False
          EndProperty
-         Height          =   390
+         Height          =   510
          Left            =   240
          TabIndex        =   11
          Tag             =   "p@bindcommand=<Return>"
@@ -640,7 +664,7 @@ Begin VB.Form frmMain
       Height          =   3975
       Left            =   5640
       TabIndex        =   17
-      Top             =   2040
+      Top             =   2640
       Width           =   5415
       Begin VB.ComboBox cmbKeepLogNum 
          Height          =   300
@@ -707,7 +731,7 @@ Begin VB.Form frmMain
       Height          =   1335
       Left            =   5640
       TabIndex        =   3
-      Top             =   600
+      Top             =   1200
       Width           =   5415
       Begin VB.CommandButton cmdCloseSerial 
          Caption         =   "πÿ±’"
@@ -769,7 +793,7 @@ Begin VB.Form frmMain
       Height          =   615
       Left            =   3240
       TabIndex        =   14
-      Top             =   7320
+      Top             =   7920
       Width           =   1815
    End
    Begin VB.CommandButton cmdChooseFile 
@@ -782,10 +806,19 @@ Begin VB.Form frmMain
    End
    Begin VB.TextBox txtSourceFile 
       Height          =   375
-      Left            =   1200
+      Left            =   1920
       TabIndex        =   1
       Top             =   120
-      Width           =   9135
+      Width           =   8415
+   End
+   Begin VB.Label lblDrillFile 
+      Alignment       =   1  'Right Justify
+      Caption         =   "ExcellonŒƒº˛(ø…—°)"
+      Height          =   375
+      Left            =   120
+      TabIndex        =   93
+      Top             =   600
+      Width           =   1695
    End
    Begin VB.Label lblSourceFile 
       Alignment       =   1  'Right Justify
@@ -794,7 +827,7 @@ Begin VB.Form frmMain
       Left            =   120
       TabIndex        =   0
       Top             =   120
-      Width           =   975
+      Width           =   1695
    End
 End
 Attribute VB_Name = "frmMain"

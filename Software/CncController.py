@@ -25,7 +25,7 @@ License:
     2015-05-14
 """
 
-__Version__ = 'v1.1.4'
+__Version__ = 'v1.2'
 
 import os, sys, re, time, datetime, math
 if sys.version_info[0] == 2:
@@ -166,9 +166,9 @@ class Application_ui(Frame):
         # To center the window on the screen.
         ws = self.master.winfo_screenwidth()
         hs = self.master.winfo_screenheight()
-        x = (ws / 2) - (747 / 2)
-        y = (hs / 2) - (581 / 2)
-        self.master.geometry('%dx%d+%d+%d' % (747,581,x,y))
+        x = (ws / 2) - (748 / 2)
+        y = (hs / 2) - (584 / 2)
+        self.master.geometry('%dx%d+%d+%d' % (748,584,x,y))
         self.createWidgets()
 
     def createWidgets(self):
@@ -177,10 +177,10 @@ class Application_ui(Frame):
         self.style = Style()
 
         self.frmStatus = LabelFrame(self.top, text='')
-        self.frmStatus.place(relx=0.011, rely=0.771, relwidth=0.483, relheight=0.098)
+        self.frmStatus.place(relx=0.011, rely=0.767, relwidth=0.483, relheight=0.111)
 
         self.tabMachine = Notebook(self.top)
-        self.tabMachine.place(relx=0.011, rely=0.138, relwidth=0.483, relheight=0.305)
+        self.tabMachine.place(relx=0.011, rely=0.137, relwidth=0.483, relheight=0.303)
 
         self.tabMachine__Tab1 = Frame(self.tabMachine)
         self.cmdApplyAxisSpeed = Button(self.tabMachine__Tab1, text='应用', command=self.cmdApplyAxisSpeed_Cmd)
@@ -263,7 +263,7 @@ class Application_ui(Frame):
         self.tabMachine.add(self.tabMachine__Tab2, text='控制板参数')
 
         self.tabPosition = Notebook(self.top)
-        self.tabPosition.place(relx=0.011, rely=0.454, relwidth=0.483, relheight=0.305)
+        self.tabPosition.place(relx=0.011, rely=0.452, relwidth=0.483, relheight=0.303)
 
         self.tabPosition__Tab1 = Frame(self.tabPosition)
         self.cmdZMicroUp = Button(self.tabPosition__Tab1, text='→', command=self.cmdZMicroUp_Cmd)
@@ -336,6 +336,9 @@ class Application_ui(Frame):
         self.tabPosition.add(self.tabPosition__Tab2, text='打印区域定位')
 
         self.tabPosition__Tab3 = Frame(self.tabPosition)
+        self.chkSortCommandsVar = IntVar(value=1)
+        self.chkSortCommands = Checkbutton(self.tabPosition__Tab3, text='排序绘图命令', variable=self.chkSortCommandsVar)
+        self.chkSortCommands.place(relx=0.066, rely=0.547, relwidth=0.38, relheight=0.106)
         self.chkOmitRegionCmdVar = IntVar(value=0)
         self.chkOmitRegionCmd = Checkbutton(self.tabPosition__Tab3, text='忽略区域绘图命令', variable=self.chkOmitRegionCmdVar)
         self.chkOmitRegionCmd.place(relx=0.066, rely=0.348, relwidth=0.38, relheight=0.106)
@@ -351,96 +354,67 @@ class Application_ui(Frame):
         self.tabPosition.add(self.tabPosition__Tab3, text='其他配置')
 
         self.cmdStartSimulator = Button(self.top, text='打开模拟器(E)', underline=6, command=self.cmdStartSimulator_Cmd)
-        self.cmdStartSimulator.place(relx=0.032, rely=0.909, relwidth=0.162, relheight=0.071)
+        self.cmdStartSimulator.place(relx=0.032, rely=0.904, relwidth=0.162, relheight=0.07)
         self.top.bind_all('<Alt-E>', lambda e: self.cmdStartSimulator.focus_set() or self.cmdStartSimulator.invoke())
         self.top.bind_all('<Alt-e>', lambda e: self.cmdStartSimulator.focus_set() or self.cmdStartSimulator.invoke())
 
         self.cmdPause = Button(self.top, text='暂停(P)', underline=3, command=self.cmdPause_Cmd)
-        self.cmdPause.place(relx=0.546, rely=0.909, relwidth=0.162, relheight=0.071)
+        self.cmdPause.place(relx=0.545, rely=0.904, relwidth=0.162, relheight=0.07)
         self.top.bind_all('<Alt-P>', lambda e: self.cmdPause.focus_set() or self.cmdPause.invoke())
         self.top.bind_all('<Alt-p>', lambda e: self.cmdPause.focus_set() or self.cmdPause.invoke())
 
         self.style.configure('TcmdStop.TButton', background='#ECE9D8')
         self.cmdStop = Button(self.top, text='停止(T)', underline=3, command=self.cmdStop_Cmd, style='TcmdStop.TButton')
-        self.cmdStop.place(relx=0.803, rely=0.909, relwidth=0.162, relheight=0.071)
+        self.cmdStop.place(relx=0.802, rely=0.904, relwidth=0.162, relheight=0.07)
         self.top.bind_all('<Alt-T>', lambda e: self.cmdStop.focus_set() or self.cmdStop.invoke())
         self.top.bind_all('<Alt-t>', lambda e: self.cmdStop.focus_set() or self.cmdStop.invoke())
 
         self.frmManualCmd = LabelFrame(self.top, text='手动执行命令')
-        self.frmManualCmd.place(relx=0.503, rely=0.771, relwidth=0.483, relheight=0.098)
+        self.frmManualCmd.place(relx=0.503, rely=0.767, relwidth=0.483, relheight=0.111)
 
         self.frmLog = LabelFrame(self.top, text='收发数据')
-        self.frmLog.place(relx=0.503, rely=0.303, relwidth=0.483, relheight=0.456)
+        self.frmLog.place(relx=0.503, rely=0.301, relwidth=0.483, relheight=0.454)
 
         self.frmSerial = LabelFrame(self.top, text='端口设置')
-        self.frmSerial.place(relx=0.503, rely=0.138, relwidth=0.483, relheight=0.153)
+        self.frmSerial.place(relx=0.503, rely=0.137, relwidth=0.483, relheight=0.152)
 
         self.cmdStart = Button(self.top, text='启动(S)', underline=3, command=self.cmdStart_Cmd)
-        self.cmdStart.place(relx=0.289, rely=0.909, relwidth=0.162, relheight=0.071)
+        self.cmdStart.place(relx=0.289, rely=0.904, relwidth=0.162, relheight=0.07)
         self.top.bind_all('<Alt-S>', lambda e: self.cmdStart.focus_set() or self.cmdStart.invoke())
         self.top.bind_all('<Alt-s>', lambda e: self.cmdStart.focus_set() or self.cmdStart.invoke())
 
         self.cmdChooseFile = Button(self.top, text='...', command=self.cmdChooseFile_Cmd)
-        self.cmdChooseFile.place(relx=0.932, rely=0.014, relwidth=0.055, relheight=0.043)
+        self.cmdChooseFile.place(relx=0.93, rely=0.014, relwidth=0.055, relheight=0.043)
 
         self.txtSourceFileVar = StringVar(value='')
         self.txtSourceFile = Entry(self.top, textvariable=self.txtSourceFileVar)
-        self.txtSourceFile.place(relx=0.182, rely=0.014, relwidth=0.74, relheight=0.043)
+        self.txtSourceFile.place(relx=0.171, rely=0.014, relwidth=0.75, relheight=0.043)
 
         self.style.configure('TlblSourceFile.TLabel', anchor='e')
-        self.lblSourceFile = Label(self.top, text='Gerber文件', style='TlblSourceFile.TLabel')
-        self.lblSourceFile.place(relx=0.011, rely=0.014, relwidth=0.162, relheight=0.029)
+        self.lblSourceFile = Label(self.top, text='输入文件', style='TlblSourceFile.TLabel')
+        self.lblSourceFile.place(relx=0.011, rely=0.014, relwidth=0.151, relheight=0.043)
 
         self.cmdExcellonFile = Button(self.top, text='...', command=self.cmdExcellonFile_Cmd)
-        self.cmdExcellonFile.place(relx=0.932, rely=0.069, relwidth=0.055, relheight=0.043)
+        self.cmdExcellonFile.place(relx=0.93, rely=0.068, relwidth=0.055, relheight=0.043)
 
         self.txtExcellonFileVar = StringVar(value='')
         self.txtExcellonFile = Entry(self.top, textvariable=self.txtExcellonFileVar)
-        self.txtExcellonFile.place(relx=0.182, rely=0.069, relwidth=0.74, relheight=0.043)
+        self.txtExcellonFile.place(relx=0.171, rely=0.068, relwidth=0.75, relheight=0.043)
 
         self.style.configure('TlblDrillFile.TLabel', anchor='e')
         self.lblDrillFile = Label(self.top, text='Excellon文件(可选)', style='TlblDrillFile.TLabel')
-        self.lblDrillFile.place(relx=0.011, rely=0.069, relwidth=0.162, relheight=0.029)
-
-        self.style.configure('TlblQueueCmdNum.TLabel', anchor='w')
-        self.lblQueueCmdNum = Label(self.frmStatus, text='剩余命令：0', style='TlblQueueCmdNum.TLabel')
-        self.lblQueueCmdNum.place(relx=0.066, rely=0.281, relwidth=0.38, relheight=0.439)
-
-        self.style.configure('TlblTimeToFinish.TLabel', anchor='w')
-        self.lblTimeToFinish = Label(self.frmStatus, text='预计剩余时间：00:00:00', style='TlblTimeToFinish.TLabel')
-        self.lblTimeToFinish.place(relx=0.488, rely=0.281, relwidth=0.446, relheight=0.439)
-
-        self.cmdSendCommand = Button(self.frmManualCmd, text='执行', command=self.cmdSendCommand_Cmd)
-        self.cmdSendCommand.place(relx=0.842, rely=0.263, relwidth=0.136, relheight=0.456)
-
-        self.txtManualCommandVar = StringVar(value='')
-        self.txtManualCommand = Entry(self.frmManualCmd, textvariable=self.txtManualCommandVar, font=('Courier New',12))
-        self.txtManualCommand.place(relx=0.044, rely=0.263, relwidth=0.778, relheight=0.456)
-        self.txtManualCommand.bind('<Return>', self.txtManualCommand_Return)
-
-        self.cmbKeepLogNumList = ['100','500','1000','2000','3000','4000','5000','8000','10000','20000',]
-        self.cmbKeepLogNumVar = StringVar(value='100')
-        self.cmbKeepLogNum = Combobox(self.frmLog, state='readonly', text='100', textvariable=self.cmbKeepLogNumVar, values=self.cmbKeepLogNumList)
-        self.cmbKeepLogNum.place(relx=0.244, rely=0.875, relwidth=0.269)
-
-        self.cmdSaveLog = Button(self.frmLog, text='保存', command=self.cmdSaveLog_Cmd)
-        self.cmdSaveLog.place(relx=0.576, rely=0.875, relwidth=0.18, relheight=0.075)
+        self.lblDrillFile.place(relx=0.011, rely=0.068, relwidth=0.151, relheight=0.043)
 
         self.scrVLog = Scrollbar(self.frmLog, orient='vertical')
         self.scrVLog.place(relx=0.909, rely=0.06, relwidth=0.047, relheight=0.728)
 
-        self.cmdClearLog = Button(self.frmLog, text='清空', command=self.cmdClearLog_Cmd)
-        self.cmdClearLog.place(relx=0.776, rely=0.875, relwidth=0.18, relheight=0.075)
-
-        self.lstLogVar = StringVar(value='')
-        self.lstLogFont = Font(font=('宋体',12))
-        self.lstLog = Listbox(self.frmLog, listvariable=self.lstLogVar, yscrollcommand=self.scrVLog.set, font=self.lstLogFont)
-        self.lstLog.place(relx=0.044, rely=0.06, relwidth=0.867, relheight=0.74)
-        self.scrVLog['command'] = self.lstLog.yview
-
         self.style.configure('TlblKeepLogNum.TLabel', anchor='w')
         self.lblKeepLogNum = Label(self.frmLog, text='保留条目', style='TlblKeepLogNum.TLabel')
         self.lblKeepLogNum.place(relx=0.044, rely=0.875, relwidth=0.158, relheight=0.064)
+
+        self.style.configure('TlblTimeToFinish.TLabel', anchor='w')
+        self.lblTimeToFinish = Label(self.frmStatus, text='预计剩余时间：00:00:00', style='TlblTimeToFinish.TLabel')
+        self.lblTimeToFinish.place(relx=0.488, rely=0.246, relwidth=0.446, relheight=0.385)
 
         self.cmdCloseSerial = Button(self.frmSerial, text='关闭', state='disabled', command=self.cmdCloseSerial_Cmd)
         self.cmdCloseSerial.place(relx=0.687, rely=0.539, relwidth=0.202, relheight=0.281)
@@ -465,6 +439,35 @@ class Application_ui(Frame):
         self.style.configure('TlblPortNo.TLabel', anchor='e')
         self.lblPortNo = Label(self.frmSerial, text='端口号', style='TlblPortNo.TLabel')
         self.lblPortNo.place(relx=0.044, rely=0.18, relwidth=0.158, relheight=0.191)
+
+        self.cmdSendCommand = Button(self.frmManualCmd, text='执行', command=self.cmdSendCommand_Cmd)
+        self.cmdSendCommand.place(relx=0.842, rely=0.231, relwidth=0.136, relheight=0.523)
+
+        self.txtManualCommandVar = StringVar(value='')
+        self.txtManualCommand = Entry(self.frmManualCmd, textvariable=self.txtManualCommandVar, font=('Courier New',12))
+        self.txtManualCommand.place(relx=0.044, rely=0.231, relwidth=0.778, relheight=0.523)
+        self.txtManualCommand.bind('<Return>', self.txtManualCommand_Return)
+
+        self.style.configure('TlblQueueCmdNum.TLabel', anchor='w')
+        self.lblQueueCmdNum = Label(self.frmStatus, text='剩余命令：0', style='TlblQueueCmdNum.TLabel')
+        self.lblQueueCmdNum.place(relx=0.066, rely=0.246, relwidth=0.38, relheight=0.385)
+
+        self.cmbKeepLogNumList = ['100','500','1000','2000','3000','4000','5000','8000','10000','20000',]
+        self.cmbKeepLogNumVar = StringVar(value='100')
+        self.cmbKeepLogNum = Combobox(self.frmLog, state='readonly', text='100', textvariable=self.cmbKeepLogNumVar, values=self.cmbKeepLogNumList)
+        self.cmbKeepLogNum.place(relx=0.244, rely=0.875, relwidth=0.269)
+
+        self.cmdSaveLog = Button(self.frmLog, text='保存', command=self.cmdSaveLog_Cmd)
+        self.cmdSaveLog.place(relx=0.576, rely=0.875, relwidth=0.18, relheight=0.075)
+
+        self.lstLogVar = StringVar(value='')
+        self.lstLogFont = Font(font=('宋体',12))
+        self.lstLog = Listbox(self.frmLog, listvariable=self.lstLogVar, yscrollcommand=self.scrVLog.set, font=self.lstLogFont)
+        self.lstLog.place(relx=0.044, rely=0.06, relwidth=0.867, relheight=0.74)
+        self.scrVLog['command'] = self.lstLog.yview
+
+        self.cmdClearLog = Button(self.frmLog, text='清空', command=self.cmdClearLog_Cmd)
+        self.cmdClearLog.place(relx=0.776, rely=0.875, relwidth=0.18, relheight=0.075)
 
 class Application(Application_ui):
     #这个类实现具体的事件处理回调函数。界面生成代码在Application_ui中。
@@ -562,6 +565,10 @@ class Application(Application_ui):
         except:
             pass
         try:
+            self.chkSortCommandsVar.set(1 if config.getboolean('Main', 'SortCommands') else 0)
+        except:
+            pass
+        try:
             self.simulatorWidth = config.get('Simulator', 'Width')
         except:
             self.simulatorWidth = '200'
@@ -587,6 +594,7 @@ class Application(Application_ui):
         config.set('Main', 'ShiftX', '%.1f' % self.shiftX)
         config.set('Main', 'ShiftY', '%.1f' % self.shiftY)
         config.set('Main', 'OmitRegionCmd', str(self.chkOmitRegionCmdVar.get()))
+        config.set('Main', 'SortCommands', str(self.chkSortCommandsVar.get()))
         config.set('Simulator', 'Width', self.simulatorWidth)
         self.cnc.SaveConfig(config)
         
@@ -1063,6 +1071,7 @@ class Application(Application_ui):
             self.simulator.Reset(x=True, y=True)
             self.simulator.UpdateProperties()
         
+        commands = [] #保存最终将要画的线条命令，每个元素为一个（x,y,z）
         for lineNo, line in enumerate(lines, 1):
             if self.evExit.is_set():
                 return
@@ -1096,31 +1105,35 @@ class Application(Application_ui):
                                 #第二步：如果直线遇到钻孔，则跳过孔位
                                 for out in self.KeepAwayFromHoles(holes, prevX4Holes, prevY4Holes, 
                                                     point[0], point[1], z, penWidth):
+                                    commands.append(out)
                                     #第三步：转换成雕刻机步进电机运行指令
-                                    for cmd in self.cnc.TranslateCmd(out[0], out[1], out[2]):
-                                        ret = self.SendCommand(cmd, penWidth)
-                                        if not ret:
-                                            return
+                                    #for cmd in self.cnc.TranslateCmd(out[0], out[1], out[2]):
+                                    #    ret = self.SendCommand(cmd, penWidth)
+                                    #    if not ret:
+                                    #        return
                                 prevX4Holes = point[0]
                                 prevY4Holes = point[1]                                
                             else: # '2' or '3'，不用管钻孔的事
-                                for cmd in self.cnc.TranslateCmd(point[0], point[1], z):
-                                    ret = self.SendCommand(cmd, penWidth)
-                                    if not ret:
-                                        return
+                                commands.append((point[0], point[1], z))
+                                #for cmd in self.cnc.TranslateCmd(point[0], point[1], z):
+                                #    ret = self.SendCommand(cmd, penWidth)
+                                #    if not ret:
+                                #        return
                     else:
                         if zInFile == '1':
                             #跳过钻孔区域
                             for out in self.KeepAwayFromHoles(holes, prevX4Holes, prevY4Holes, x, y, z, penWidth):
-                                for cmd in self.cnc.TranslateCmd(out[0], out[1], out[2]):
-                                    ret = self.SendCommand(cmd, penWidth)
-                                    if not ret:
-                                        return
+                                commands.append(out)
+                                #for cmd in self.cnc.TranslateCmd(out[0], out[1], out[2]):
+                                #    ret = self.SendCommand(cmd, penWidth)
+                                #    if not ret:
+                                #        return
                         else: # 2 or 3
-                            for cmd in self.cnc.TranslateCmd(x, y, z):
-                                ret = self.SendCommand(cmd, penWidth)
-                                if not ret:
-                                    return
+                            commands.append((x, y, z))
+                            #for cmd in self.cnc.TranslateCmd(x, y, z):
+                            #    ret = self.SendCommand(cmd, penWidth)
+                            #    if not ret:
+                            #        return
                                 
                     prevX = prevX4Holes = x
                     prevY = prevY4Holes = y
@@ -1143,17 +1156,17 @@ class Application(Application_ui):
                             #一条斜线，雕刻机不支持直接画斜线，要用一系列的横线竖线逼近
                             if (z == '1') and (x != prevX) and (y != prevY):
                                 for point in self.SplitInclined(prevX, prevY, x, y):
-                                    
-                                    for cmd in self.cnc.TranslateCmd(point[0], point[1], z):
-                                        ret = self.SendCommand(cmd, penWidth)
-                                        if not ret:
-                                            return
+                                    commands.append((point[0], point[1], z))
+                                    #for cmd in self.cnc.TranslateCmd(point[0], point[1], z):
+                                    #    ret = self.SendCommand(cmd, penWidth)
+                                    #    if not ret:
+                                    #        return
                             else:
-                                
-                                for cmd in self.cnc.TranslateCmd(x, y, z):
-                                    ret = self.SendCommand(cmd, penWidth)
-                                    if not ret:
-                                        return
+                                commands.append((x, y, z))
+                                #for cmd in self.cnc.TranslateCmd(x, y, z):
+                                #    ret = self.SendCommand(cmd, penWidth)
+                                #    if not ret:
+                                #        return
                             prevX = prevX4Holes = x
                             prevY = prevY4Holes = y
                         
@@ -1164,6 +1177,15 @@ class Application(Application_ui):
                     regionModeOn = True
                 elif 'G37*' in line: #区域模式关闭
                     regionModeOn = False
+        
+        if self.chkSortCommandsVar.get():
+            self.SortCommands(commands) #命令排序，为了减少雕刻笔移动距离，提高雕刻速度
+        
+        for x, y, z in commands:
+            for cmd in self.cnc.TranslateCmd(x, y, z):
+                ret = self.SendCommand(cmd, penWidth)
+                if not ret:
+                    return
         
         #归位，为了更快，也走斜线路径回零位，逼近精度为1000(1mm)
         if (prevX != 0.0) and (prevY != 0.0):
@@ -1177,6 +1199,57 @@ class Application(Application_ui):
         #用于最后响铃提醒用
         self.SendCommand(END_CMD, None)
     
+    #命令排序，为了减少雕刻笔移动距离，提高雕刻速度
+    def SortCommands(self, commands):
+        #将坐标点转换为线条列表
+        lines = []
+        prevX = prevY = 0.0
+        for x, y, z in commands: #这里z只有1、2
+            if z == '1':
+                lines.append((prevX, prevY, x, y))
+            prevX = x
+            prevY = y
+        
+        if not lines:
+            return
+            
+        #找出离原点最近的一根线
+        minDis = 99999999.0
+        minIdx = 0
+        for (x1,y1,x2,y2), idx in enumerate(lines):
+            dis = DistanceDotToDot(x1, y1, 0.0, 0.0)
+            if dis < minDis:
+                minDis = dis
+                minIdx = idx
+        
+        #从第一根线起，一直寻找离前一跟线终点最近的另一根线
+        newLines = []
+        while lines:
+            line1 = lines.pop(minIdx)
+            newLines.append(line1)
+            
+            minDis = 99999999.0
+            minIdx = 0
+            prevX = line1[2]
+            prevY = line1[3]
+            for (x1,y1,x2,y2), idx in enumerate(lines):
+                dis = DistanceDotToDot(x1, y1, prevX, prevY)
+                if dis < minDis:
+                    minDis = dis
+                    minIdx = idx
+        
+        #将线段重新转换为坐标点列表
+        commands[:] = []
+        prevX = prevY = 0.0
+        for x1, y1, x2, y2 in newLines:
+            if x1 != prevX or y1 != prevY:
+                commands.append((x1, y1, '2'))
+            commands.append((x2, y2, '1'))
+            prevX = x2
+            prevY = y2
+        
+        return
+        
     #判断此直线是否经过了焊盘钻孔区域，如果是，则适当处理跳过之，返回一个(x,y,z)列表
     def KeepAwayFromHoles(self, holes, x1, y1, x2, y2, z, penWidth):
         #return [(x2, y2, z)]
@@ -2718,7 +2791,11 @@ class Aperture:
             xFill += fillStep
             
         return res
-               
+
+#计算两个点的距离
+def DistanceDotToDot(x1, y1, x2, y2):
+    return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+    
 #发出声音提醒
 def SoundNotify(single=True):
     if winsound:
