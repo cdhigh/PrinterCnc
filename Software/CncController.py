@@ -25,7 +25,7 @@ License:
     2015-05-14
 """
 
-__Version__ = 'v1.2'
+__Version__ = 'v1.2.1'
 
 import os, sys, re, time, datetime, math
 if sys.version_info[0] == 2:
@@ -53,6 +53,11 @@ try: #用于Beep声音提醒
     import winsound
 except ImportError:
     winsound = None
+    
+try:
+    from sortcommands import SortCommands
+except ImportError:
+    SortCommands = None
     
 from operator import itemgetter
 from threading import Thread, Event
@@ -500,6 +505,9 @@ class Application(Application_ui):
         self.cnc = CncMachine(self)
         self.RestoreConfig()
         self.txtSourceFile.focus_set()
+        if not SortCommands:
+            self.chkSortCommands['state'] = 'disabled'
+            
         self.simulator = None
         self.ser = None
         self.serTimeout = 1 #为了更快的界面响应时间和需要的超时时间，总超时 timeout * cnt
@@ -1106,34 +1114,17 @@ class Application(Application_ui):
                                 for out in self.KeepAwayFromHoles(holes, prevX4Holes, prevY4Holes, 
                                                     point[0], point[1], z, penWidth):
                                     commands.append(out)
-                                    #第三步：转换成雕刻机步进电机运行指令
-                                    #for cmd in self.cnc.TranslateCmd(out[0], out[1], out[2]):
-                                    #    ret = self.SendCommand(cmd, penWidth)
-                                    #    if not ret:
-                                    #        return
                                 prevX4Holes = point[0]
                                 prevY4Holes = point[1]                                
                             else: # '2' or '3'，不用管钻孔的事
                                 commands.append((point[0], point[1], z))
-                                #for cmd in self.cnc.TranslateCmd(point[0], point[1], z):
-                                #    ret = self.SendCommand(cmd, penWidth)
-                                #    if not ret:
-                                #        return
                     else:
                         if zInFile == '1':
                             #跳过钻孔区域
                             for out in self.KeepAwayFromHoles(holes, prevX4Holes, prevY4Holes, x, y, z, penWidth):
                                 commands.append(out)
-                                #for cmd in self.cnc.TranslateCmd(out[0], out[1], out[2]):
-                                #    ret = self.SendCommand(cmd, penWidth)
-                                #    if not ret:
-                                #        return
                         else: # 2 or 3
                             commands.append((x, y, z))
-                            #for cmd in self.cnc.TranslateCmd(x, y, z):
-                            #    ret = self.SendCommand(cmd, penWidth)
-                            #    if not ret:
-                            #        return
                                 
                     prevX = prevX4Holes = x
                     prevY = prevY4Holes = y
@@ -1157,16 +1148,8 @@ class Application(Application_ui):
                             if (z == '1') and (x != prevX) and (y != prevY):
                                 for point in self.SplitInclined(prevX, prevY, x, y):
                                     commands.append((point[0], point[1], z))
-                                    #for cmd in self.cnc.TranslateCmd(point[0], point[1], z):
-                                    #    ret = self.SendCommand(cmd, penWidth)
-                                    #    if not ret:
-                                    #        return
                             else:
                                 commands.append((x, y, z))
-                                #for cmd in self.cnc.TranslateCmd(x, y, z):
-                                #    ret = self.SendCommand(cmd, penWidth)
-                                #    if not ret:
-                                #        return
                             prevX = prevX4Holes = x
                             prevY = prevY4Holes = y
                         
@@ -1178,9 +1161,18 @@ class Application(Application_ui):
                 elif 'G37*' in line: #区域模式关闭
                     regionModeOn = False
         
-        if self.chkSortCommandsVar.get():
-            self.SortCommands(commands) #命令排序，为了减少雕刻笔移动距离，提高雕刻速度
-        
+        if self.chkSortCommandsVar.get() and SortCommands:
+            ret = askyesno('排序功能等候提醒', '你已经选择了命令排序功能，可能需要等待一段时间来排序。'
+                '\n根据命令数量不同，时间可能在几秒到几十秒之间，请耐心等候。'
+                '\n\n选择 yes 继续排序，选择 no 则跳过排序。')
+            if ret:
+                #self.top.update_idletasks()
+                #t1 = time.clock()
+                SortCommands(commands) #命令排序，为了减少雕刻笔移动距离，提高雕刻速度
+                #t2 = time.clock()
+                #showinfo('time', '%f' % (t2-t1))
+                #return
+            
         for x, y, z in commands:
             for cmd in self.cnc.TranslateCmd(x, y, z):
                 ret = self.SendCommand(cmd, penWidth)
@@ -1200,7 +1192,7 @@ class Application(Application_ui):
         self.SendCommand(END_CMD, None)
     
     #命令排序，为了减少雕刻笔移动距离，提高雕刻速度
-    def SortCommands(self, commands):
+    def SortCommands1(self, commands):
         #将坐标点转换为线条列表
         lines = []
         prevX = prevY = 0.0
@@ -1216,7 +1208,7 @@ class Application(Application_ui):
         #找出离原点最近的一根线
         minDis = 99999999.0
         minIdx = 0
-        for (x1,y1,x2,y2), idx in enumerate(lines):
+        for idx, (x1,y1,x2,y2) in enumerate(lines):
             dis = DistanceDotToDot(x1, y1, 0.0, 0.0)
             if dis < minDis:
                 minDis = dis
@@ -1232,7 +1224,7 @@ class Application(Application_ui):
             minIdx = 0
             prevX = line1[2]
             prevY = line1[3]
-            for (x1,y1,x2,y2), idx in enumerate(lines):
+            for idx, (x1,y1,x2,y2) in enumerate(lines):
                 dis = DistanceDotToDot(x1, y1, prevX, prevY)
                 if dis < minDis:
                     minDis = dis
@@ -2792,10 +2784,6 @@ class Aperture:
             
         return res
 
-#计算两个点的距离
-def DistanceDotToDot(x1, y1, x2, y2):
-    return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-    
 #发出声音提醒
 def SoundNotify(single=True):
     if winsound:
