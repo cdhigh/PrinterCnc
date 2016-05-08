@@ -4,8 +4,12 @@
 因为光驱行程太小，不实用，不好玩，我没有兴趣采用光驱制作，为此，使用了一个废打印机框架和扫描仪组件改成了一个超低成本的大行程雕刻机。<br />
 
 [详细制作过程请参考此论坛文章](http://bbs.mydigit.cn/read.php?tid=1249614)
-<br />
+
 [用此雕刻机制作PCB的一个实例](http://bbs.mydigit.cn/read.php?tid=1273975)
+
+[Tudou视频链接](http://www.tudou.com/programs/view/WVVkEhqN5hE/)
+
+[Youtube视频链接](https://youtu.be/T--rAQz5LJA)
 
 ![正面](https://raw.githubusercontent.com/cdhigh/PrinterCnc/master/Photos/%E6%95%B4%E6%9C%BA%E6%AD%A3%E9%9D%A2.JPG)
 ![打印效果](https://raw.githubusercontent.com/cdhigh/PrinterCnc/master/Photos/%E6%89%93%E5%8D%B0%E9%BE%99%E5%AD%97.JPG)

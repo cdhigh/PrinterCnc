@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 """命令排序，为了减少雕刻笔移动距离，提高雕刻速度"""
-import math
+#import math
 
 #计算两个点的距离（为了速度考虑，实际返回的是距离的平方）
 cdef inline float DistanceDotToDot(float x1, float y1, float x2, float y2):
