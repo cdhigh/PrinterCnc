@@ -1,5 +1,5 @@
 # PrinterCnc
-这个项目源于 [https://github.com/themrleon/OpenCdNC](https://github.com/themrleon/OpenCdNC) ，
+这个项目的灵感源于 [https://github.com/themrleon/OpenCdNC](https://github.com/themrleon/OpenCdNC) ，但代码和实现完全不同，forked其仓库只是致敬其创意。
 <br />
 因为光驱行程太小，不实用，不好玩，我没有兴趣采用光驱制作，为此，使用了一个废打印机框架和扫描仪组件改成了一个超低成本的大行程雕刻机。<br />
 
